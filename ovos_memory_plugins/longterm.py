@@ -11,11 +11,10 @@ Entry point: ``ovos-memory-plugin-longterm``  (``opm.agents.memory``)
 from __future__ import annotations
 
 import json
-import os
 import sqlite3
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import requests
 from ovos_plugin_manager.templates.agents import AgentContextManager, AgentMessage, MessageRole
@@ -166,6 +165,7 @@ class LongTermMemory(AgentContextManager):
         default_path = f"~/.local/share/ovos/longterm_memory{default_ext}"
         db_path = self.config.get("db_path", default_path)
 
+        self._store: Union[_SqliteStore, _JsonStore]
         if backend == "sqlite":
             self._store = _SqliteStore(db_path)
         else:

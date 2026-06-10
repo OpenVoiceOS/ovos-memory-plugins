@@ -31,6 +31,8 @@ test = [
     "fastapi",
     "uvicorn",
     "httpx",
+    "types-requests",
+    "mypy",
 ]
 
 [project.entry-points."opm.agents.memory"]

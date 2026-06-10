@@ -4,7 +4,9 @@ from unittest.mock import MagicMock, patch, call
 import pytest
 
 from ovos_plugin_manager.templates.agents import AgentMessage, MessageRole
-from ovos_memory_plugins.rag import RAGMemory, _cosine, _embed, _upload_file
+from ovos_memory_plugins.rag import (
+    RAGMemory, _cosine, _embed, _upload_file, _attach_to_store, _vector_search,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -189,3 +191,97 @@ def test_all_endpoints_failing_no_crash(mock_vs, mock_attach, mock_upload, mock_
     plugin.update_history([_user("hi"), _assistant("hey")], "s1")
     ctx = plugin.build_conversation_context("next", "s1")
     assert ctx[-1].content == "next"
+
+
+# ---------------------------------------------------------------------------
+# _embed / _upload_file / _attach_to_store / _vector_search direct calls
+# ---------------------------------------------------------------------------
+
+@patch("ovos_memory_plugins.rag.requests.post")
+def test_embed_returns_vector(mock_post):
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {"data": [{"embedding": [0.1, 0.2, 0.3]}]}
+    mock_post.return_value = mock_resp
+    result = _embed("http://mock/v1", "text")
+    assert result == [0.1, 0.2, 0.3]
+
+
+@patch("ovos_memory_plugins.rag.requests.post", side_effect=Exception("conn"))
+def test_embed_failure_returns_none(mock_post):
+    result = _embed("http://mock/v1", "text")
+    assert result is None
+
+
+@patch("ovos_memory_plugins.rag.requests.post")
+def test_upload_file_returns_id(mock_post):
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {"id": "file_123"}
+    mock_post.return_value = mock_resp
+    result = _upload_file("http://mock/v1", "content", "test.txt")
+    assert result == "file_123"
+
+
+@patch("ovos_memory_plugins.rag.requests.post", side_effect=Exception("upload fail"))
+def test_upload_file_failure_returns_none(mock_post):
+    result = _upload_file("http://mock/v1", "content", "test.txt")
+    assert result is None
+
+
+@patch("ovos_memory_plugins.rag.requests.post")
+def test_attach_to_store_ok(mock_post):
+    mock_resp = MagicMock()
+    mock_post.return_value = mock_resp
+    _attach_to_store("http://mock/v1", "col", "file_123")
+    mock_resp.raise_for_status.assert_called_once()
+
+
+@patch("ovos_memory_plugins.rag.requests.post", side_effect=Exception("attach fail"))
+def test_attach_to_store_failure_silent(mock_post):
+    _attach_to_store("http://mock/v1", "col", "file_123")  # should not raise
+
+
+@patch("ovos_memory_plugins.rag.requests.post")
+def test_vector_search_returns_results(mock_post):
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {"data": [{"content": "text", "score": 0.9}]}
+    mock_post.return_value = mock_resp
+    results = _vector_search("http://mock/v1", "col", "query", 3)
+    assert results == [("text", 0.9)]
+
+
+@patch("ovos_memory_plugins.rag.requests.post", side_effect=Exception("search fail"))
+def test_vector_search_failure_returns_empty(mock_post):
+    results = _vector_search("http://mock/v1", "col", "query", 3)
+    assert results == []
+
+
+# ---------------------------------------------------------------------------
+# build_conversation_context — inject_as_system mode
+# ---------------------------------------------------------------------------
+
+@patch("ovos_memory_plugins.rag._vector_search")
+@patch("ovos_memory_plugins.rag._embed", return_value=None)
+def test_build_context_inject_as_system(mock_embed, mock_vs):
+    mock_vs.return_value = [("recalled doc", 0.8)]
+    plugin = _make_plugin(inject_as_system=True)
+    ctx = plugin.build_conversation_context("question", "s1")
+    system_msgs = [m for m in ctx if m.role == MessageRole.SYSTEM]
+    assert any("recalled doc" in m.content for m in system_msgs)
+
+
+# ---------------------------------------------------------------------------
+# _local_search fallback
+# ---------------------------------------------------------------------------
+
+@patch("ovos_memory_plugins.rag._vector_search", return_value=[])
+@patch("ovos_memory_plugins.rag._embed")
+def test_local_fallback_cosine_search(mock_embed, mock_vs):
+    """When server-side search is empty, local cosine fallback is used."""
+    plugin = _make_plugin()
+    # Pre-populate local store with a known vector
+    plugin._local_store = [([1.0, 0.0], "local doc")]
+    # embed returns a similar vector for the query
+    mock_embed.return_value = [0.99, 0.01]
+    ctx = plugin.build_conversation_context("similar query", "s1")
+    contents = " ".join(m.content for m in ctx)
+    assert "local doc" in contents

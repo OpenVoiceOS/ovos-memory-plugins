@@ -8,7 +8,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from ovos_plugin_manager.templates.agents import AgentMessage, MessageRole
-from ovos_memory_plugins.longterm import LongTermMemory, _JsonStore, _SqliteStore, _messages_to_text
+from ovos_memory_plugins.longterm import (
+    LongTermMemory, _JsonStore, _SqliteStore, _messages_to_text, _chat_complete,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -264,3 +266,84 @@ def test_recent_window_enforced(mock_llm, tmp_path):
         plugin.update_history([_user(f"q{i}"), _assistant(f"a{i}")], "s1")
     # recent_window=1 → 2 messages kept
     assert len(plugin._cache["s1"]["recent"]) <= 2
+
+
+# ---------------------------------------------------------------------------
+# _chat_complete direct
+# ---------------------------------------------------------------------------
+
+@patch("ovos_memory_plugins.longterm.requests.post")
+def test_chat_complete_returns_text(mock_post):
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {"choices": [{"message": {"content": "  answer  "}}]}
+    mock_post.return_value = mock_resp
+    result = _chat_complete("http://mock/v1", "m", [{"role": "user", "content": "hi"}])
+    assert result == "answer"
+    mock_resp.raise_for_status.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _JsonStore exception paths
+# ---------------------------------------------------------------------------
+
+def test_json_store_corrupted_file(tmp_path):
+    """load() on a corrupted JSON file returns empty dict."""
+    p = tmp_path / "bad.json"
+    p.write_text("NOT JSON")
+    store = _JsonStore.__new__(_JsonStore)
+    store.path = p
+    assert store.load("s1") == {}
+
+
+def test_json_store_save_corrupted_then_recovers(tmp_path):
+    """save() when the file is corrupt creates a fresh store."""
+    p = tmp_path / "bad.json"
+    p.write_text("NOT JSON")
+    store = _JsonStore.__new__(_JsonStore)
+    store.path = p
+    store.save("s1", {"summary": "x", "recent": [], "exchange_count": 0})
+    loaded = store.load("s1")
+    assert loaded["summary"] == "x"
+
+
+# ---------------------------------------------------------------------------
+# _resolve_model auto-detect
+# ---------------------------------------------------------------------------
+
+@patch("ovos_memory_plugins.longterm.requests.get")
+def test_resolve_model_auto_detect(mock_get, tmp_path):
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {"data": [{"id": "gemma-2b"}]}
+    mock_get.return_value = mock_resp
+    plugin = _make_plugin(tmp_path, model="")
+    plugin.model = ""
+    plugin._resolve_model()
+    assert plugin.model == "gemma-2b"
+
+
+@patch("ovos_memory_plugins.longterm.requests.get", side_effect=Exception("conn refused"))
+def test_resolve_model_failure_is_silent(mock_get, tmp_path):
+    plugin = _make_plugin(tmp_path, model="fallback")
+    plugin.model = ""
+    plugin._resolve_model()
+    assert plugin.model == ""  # stays empty, no exception raised
+
+
+# ---------------------------------------------------------------------------
+# build_conversation_context — trailing USER pruning
+# ---------------------------------------------------------------------------
+
+def test_build_context_prunes_multiple_trailing_users(tmp_path):
+    """Consecutive USER messages at end of recent history are all pruned."""
+    plugin = _make_plugin(tmp_path, summarize_every=100)
+    # Manually populate cache with two trailing USER messages
+    plugin._cache["s1"] = {
+        "summary": "",
+        "recent": [_assistant("hello"), _user("q1"), _user("q2")],
+        "exchange_count": 0,
+    }
+    ctx = plugin.build_conversation_context("final", "s1")
+    user_msgs = [m for m in ctx if m.role == MessageRole.USER]
+    # Only the new utterance should appear
+    assert len(user_msgs) == 1
+    assert user_msgs[0].content == "final"
