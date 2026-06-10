@@ -1,0 +1,11 @@
+name: Release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  release:
+    uses: OpenVoiceOS/gh-automations/.github/workflows/release_workflow.yml@dev
+    secrets: inherit

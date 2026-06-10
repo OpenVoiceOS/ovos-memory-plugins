@@ -1,0 +1,11 @@
+name: Publish alpha
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    uses: OpenVoiceOS/gh-automations/.github/workflows/publish_alpha.yml@dev
+    secrets: inherit
