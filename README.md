@@ -189,3 +189,11 @@ This package ships two backends in one installable wheel:
 Both plugins fall back gracefully when endpoints are unavailable: LTM silently skips summarization and retains the raw window; RAG falls back to local in-process cosine similarity using the embedding cache.
 
 You can mix and match:  run LTM as the primary memory module and point both the LTM summarizer and the RAG server at the same `ovos-persona-server` instance to get rolling summaries *and* fine-grained retrieval simultaneously.
+
+## Credits
+
+Developed by [TigreGotico](https://tigregotico.pt) for [OpenVoiceOS](https://openvoiceos.org).
+
+Funded by [NGI0 Commons Fund](https://nlnet.nl/project/OpenVoiceOS) / [NLnet](https://nlnet.nl)
+under grant agreement No [101135429](https://cordis.europa.eu/project/id/101135429),
+through the European Commission's [Next Generation Internet](https://ngi.eu) programme.
