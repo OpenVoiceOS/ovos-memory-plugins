@@ -174,22 +174,6 @@ pytest tests/test_e2e_rag.py -v -s
 
 ---
 
-## Blog draft
-
-### Persistent Memory for OVOS Personas: Long-Term Summarization and RAG
-
-OVOS personas have always maintained a short-term conversation window, but until now there was no standard way to make that memory *persist* across sessions or *retrieve* relevant past exchanges for context.  With the new `opm.agents.memory` plugin contract merged in OPM PR #363, any persona can now declare a `memory_module` and get a fully pluggable memory backend.
-
-This package ships two backends in one installable wheel:
-
-**`ovos-memory-plugin-longterm`** works like a human's episodic memory: it keeps recent turns verbatim, then periodically summarizes everything older into a rolling paragraph.  That paragraph is persisted to disk (JSON or SQLite) and becomes part of the system prompt for every future turn — so even after a fresh process start the persona remembers what was discussed.  Summarization happens via any OpenAI-compatible chat endpoint; the local Gemma 4B model (`http://192.168.1.200:8000/v1`) works well for concise, factual summaries.
-
-**`ovos-memory-plugin-rag`** takes a different angle: instead of compressing, it *retrieves*.  Every assistant response is embedded and uploaded to a vector store.  At query time the plugin finds the `top_k` most similar past exchanges by cosine similarity and injects them as context messages — giving the LLM concrete examples from its own history to reason about.  The endpoint contract mirrors `ovos-persona-server` PR #11 (`/v1/embeddings`, `/v1/files`, `/v1/vector_stores`).
-
-Both plugins fall back gracefully when endpoints are unavailable: LTM silently skips summarization and retains the raw window; RAG falls back to local in-process cosine similarity using the embedding cache.
-
-You can mix and match:  run LTM as the primary memory module and point both the LTM summarizer and the RAG server at the same `ovos-persona-server` instance to get rolling summaries *and* fine-grained retrieval simultaneously.
-
 ## Credits
 
 Developed by [TigreGotico](https://tigregotico.pt) for [OpenVoiceOS](https://openvoiceos.org).
