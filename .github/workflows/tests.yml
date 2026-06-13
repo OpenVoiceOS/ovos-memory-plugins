@@ -29,7 +29,7 @@ jobs:
             --cov=ovos_memory_plugins --cov-report=term-missing
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         if: matrix.python-version == '3.11'
         with:
           fail_ci_if_error: false
