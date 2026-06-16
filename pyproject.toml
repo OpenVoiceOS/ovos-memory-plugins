@@ -43,4 +43,5 @@ ovos-memory-plugin-rag = "ovos_memory_plugins.rag:RAGMemory"
 version = { attr = "ovos_memory_plugins.version.__version__" }
 
 [tool.setuptools.packages.find]
+where = ["."]
 include = ["ovos_memory_plugins*"]
