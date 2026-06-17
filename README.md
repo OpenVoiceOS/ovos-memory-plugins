@@ -1,13 +1,18 @@
 # ovos-memory-plugins
 
-Two [OVOS](https://github.com/OpenVoiceOS) `opm.agents.memory` plugins bundled in one package:
+[OVOS](https://github.com/OpenVoiceOS) `opm.agents.memory` plugins bundled in one package:
 
-| Entry point | Class | Purpose |
-|---|---|---|
-| `ovos-memory-plugin-longterm` | `LongTermMemory` | Rolling summarization of older turns via an OpenAI-compatible chat endpoint; persists summary + recent window per session |
-| `ovos-memory-plugin-rag` | `RAGMemory` | Stores every exchange via a files/embeddings API; retrieves top-k similar past turns at query time and injects them as context |
+| Entry point | Class | Purpose | Needs |
+|---|---|---|---|
+| `ovos-memory-plugin-longterm` | `LongTermMemory` | Rolling summarization of older turns via an OpenAI-compatible chat endpoint; persists summary + recent window per session | a chat endpoint |
+| `ovos-memory-plugin-local-rag` | `LocalRAGMemory` | **Fully-local in-process RAG** — embeds and stores every exchange in a local vector DB via OVOS embeddings plugins, retrieves top-k relevant prior turns and injects them per `inject_mode`. No network, no cloud key. | local plugins only |
+| `ovos-memory-plugin-rag` | `RAGMemory` | Stores every exchange via a files/embeddings API; retrieves top-k similar past turns at query time and injects them as context | an OpenAI-compatible RAG server |
 
-Both plugins implement `AgentContextManager` from `ovos-plugin-manager` (merged in [OPM PR #363](https://github.com/OpenVoiceOS/ovos-plugin-manager/pull/363)) and are consumed by `ovos-persona` (see [PR #143](https://github.com/OpenVoiceOS/ovos-persona/pull/143)) via the `memory_module` key in persona JSON.
+All plugins implement `AgentContextManager` from `ovos-plugin-manager` (merged in [OPM PR #363](https://github.com/OpenVoiceOS/ovos-plugin-manager/pull/363)) and are consumed by `ovos-persona` (see [PR #143](https://github.com/OpenVoiceOS/ovos-persona/pull/143)) via the `memory_module` key in persona JSON.
+
+`LocalRAGMemory` is the local-first headline: it runs RAG entirely in-process so a private/offline assistant gets long-term recall without standing up any server. The other two require a chat / RAG endpoint.
+
+Full docs: [`docs/`](./docs/) (overview + a page per backend). Runnable examples and persona JSON: [`examples/`](./examples/).
 
 ---
 
@@ -15,6 +20,9 @@ Both plugins implement `AgentContextManager` from `ovos-plugin-manager` (merged 
 
 ```bash
 pip install ovos-memory-plugins
+
+# fully-local RAG stack (gguf embeddings + chromadb vector store):
+pip install 'ovos-memory-plugins[local-rag]'
 ```
 
 ---
@@ -81,7 +89,78 @@ Every time `update_history` is called the plugin increments an exchange counter 
 
 ---
 
-## Plugin 2 — `ovos-memory-plugin-rag`
+## Plugin 2 — `ovos-memory-plugin-local-rag`
+
+Fully-local, in-process RAG. Loads an OVOS text-embeddings plugin and an
+`EmbeddingsDB` plugin directly (no HTTP), embeds every exchange, and retrieves
+the top-k most relevant prior turns before each response.
+
+### How it works
+
+```
+  update_history(exchange)
+      │
+      ├─ embedder.get_embeddings("Q: ...\nA: ...")   (in-process)
+      └─ db.add_embeddings(key, vector, metadata)     (local vector store)
+
+  build_conversation_context(utterance)
+      │
+      ├─ db.query(embed(query), top_k)  → top-k by cosine distance
+      ├─ filter by min_score (score = 1 - distance)
+      └─ inject per inject_mode + recent history + [USER: utterance]
+```
+
+The default stack is `ovos-gguf-embeddings-plugin` (labse gguf embeddings) +
+`ovos-chromadb-embeddings-plugin` (persistent vector store) — install the
+`local-rag` extra. Any `opm.embeddings.text` + `opm.embeddings` (`EmbeddingsDB`)
+pair works.
+
+### Configuration
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `embeddings_plugin` | str | `ovos-gguf-embeddings-plugin` | `opm.embeddings.text` entry point |
+| `embeddings_config` | dict | `{}` | Config for the embeddings plugin (e.g. `{"model": "labse"}`) |
+| `embeddings_db_plugin` | str | `ovos-chromadb-embeddings-plugin` | `opm.embeddings` (`EmbeddingsDB`) entry point |
+| `embeddings_db_config` | dict | `{}` | Config for the DB (e.g. `{"path": "~/.local/share/ovos/local_rag_db"}`) |
+| `collection` | str | `ovos_local_rag` | Collection / vector-store name |
+| `retrieval.max_num_results` | int | `5` | Max retrieved documents per query |
+| `retrieval.min_score` | float\|null | `null` | Drop hits below this score (`score = 1 - cosine_distance`) |
+| `retrieval.query_mode` | str | `utterance` | `utterance` or `history` (fold recent user turns into the query) |
+| `retrieval.query_history_turns` | int | `3` | Turns folded in when `query_mode="history"` |
+| `context.header` | str | (see source) | Header line above the retrieved context |
+| `context.chunk_prefix` / `chunk_separator` | str | `"- "` / `"\n\n"` | Rendering of each chunk |
+| `context.include_sources` | bool | `false` | Prefix each chunk with its stored id |
+| `context.tool_name` | str | `search_memory` | Tool name used by `inject_mode="tool"` |
+| `inject_mode` | str | `system` | `system` \| `system_prompt` \| `developer` \| `user` \| `tool` |
+| `system_prompt` | str | `""` | Persona system prompt |
+| `max_history` | int | `10` | Recent verbatim messages kept per session |
+
+See [`docs/local-rag.md`](./docs/local-rag.md) for the inject-mode details.
+
+### Persona wiring example (fully offline)
+
+```json
+{
+  "name": "LocalRagBot",
+  "handlers": ["ovos-gguf-chat-plugin"],
+  "memory_module": "ovos-memory-plugin-local-rag",
+  "ovos-memory-plugin-local-rag": {
+    "embeddings_plugin": "ovos-gguf-embeddings-plugin",
+    "embeddings_config": {"model": "labse"},
+    "embeddings_db_plugin": "ovos-chromadb-embeddings-plugin",
+    "embeddings_db_config": {"path": "~/.local/share/ovos/local_rag_db"},
+    "collection": "localragbot",
+    "retrieval": {"max_num_results": 4, "min_score": 0.3},
+    "inject_mode": "system",
+    "system_prompt": "You are a helpful offline assistant."
+  }
+}
+```
+
+---
+
+## Plugin 3 — `ovos-memory-plugin-rag`
 
 ### How it works
 
@@ -161,15 +240,19 @@ Personas call `build_conversation_context` before every LLM request.  They call 
 ## Running tests
 
 ```bash
-# Unit tests (mocked — no external services needed)
 pip install -e ".[test]"
-pytest tests/test_longterm.py tests/test_rag.py -v
 
-# E2E: Long-term memory vs real Gemma at http://192.168.1.200:8000/v1
-pytest tests/test_e2e_longterm.py -v -s
+# everything (unit + e2e), no external services — runs 0-skipped
+pytest tests -v
 
-# E2E: RAG vs deterministic FastAPI stub (no external LLM needed)
-pytest tests/test_e2e_rag.py -v -s
+# unit tests only (fast, stub backends)
+pytest tests/test_longterm.py tests/test_rag.py tests/test_local_rag.py -v
+
+# e2e: local RAG against the real gguf + chromadb stack (first run downloads the model)
+pytest tests/test_e2e_local_rag.py -v -s
+
+# e2e: long-term + http-rag against in-process FastAPI stubs (no external LLM)
+pytest tests/test_e2e_longterm.py tests/test_e2e_rag.py -v -s
 ```
 
 ---
