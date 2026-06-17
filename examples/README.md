@@ -12,7 +12,6 @@ block configures it.
 |---|---|---|
 | [`persona_local_rag.json`](./persona_local_rag.json) | `ovos-memory-plugin-local-rag` | **nothing external** — fully offline (gguf + chromadb) |
 | [`persona_longterm.json`](./persona_longterm.json) | `ovos-memory-plugin-longterm` | a chat endpoint |
-| [`persona_http_rag.json`](./persona_http_rag.json) | `ovos-memory-plugin-rag` | an OpenAI-compatible RAG server |
 
 ## Runnable scripts
 

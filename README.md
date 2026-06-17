@@ -6,11 +6,10 @@
 |---|---|---|---|
 | `ovos-memory-plugin-longterm` | `LongTermMemory` | Rolling summarization of older turns via an OpenAI-compatible chat endpoint; persists summary + recent window per session | a chat endpoint |
 | `ovos-memory-plugin-local-rag` | `LocalRAGMemory` | **Fully-local in-process RAG** — embeds and stores every exchange in a local vector DB via OVOS embeddings plugins, retrieves top-k relevant prior turns and injects them per `inject_mode`. No network, no cloud key. | local plugins only |
-| `ovos-memory-plugin-rag` | `RAGMemory` | Stores every exchange via a files/embeddings API; retrieves top-k similar past turns at query time and injects them as context | an OpenAI-compatible RAG server |
 
-All plugins implement `AgentContextManager` from `ovos-plugin-manager` (merged in [OPM PR #363](https://github.com/OpenVoiceOS/ovos-plugin-manager/pull/363)) and are consumed by `ovos-persona` (see [PR #143](https://github.com/OpenVoiceOS/ovos-persona/pull/143)) via the `memory_module` key in persona JSON.
+Both plugins implement `AgentContextManager` from `ovos-plugin-manager` (merged in [OPM PR #363](https://github.com/OpenVoiceOS/ovos-plugin-manager/pull/363)) and are consumed by `ovos-persona` (see [PR #143](https://github.com/OpenVoiceOS/ovos-persona/pull/143)) via the `memory_module` key in persona JSON.
 
-`LocalRAGMemory` is the local-first headline: it runs RAG entirely in-process so a private/offline assistant gets long-term recall without standing up any server. The other two require a chat / RAG endpoint.
+`LocalRAGMemory` is the local-first headline: it runs RAG entirely in-process so a private/offline assistant gets long-term recall without standing up any server. `LongTermMemory` carries a compact running summary and needs only a chat endpoint.
 
 Full docs: [`docs/`](./docs/) (overview + a page per backend). Runnable examples and persona JSON: [`examples/`](./examples/).
 
@@ -160,64 +159,6 @@ See [`docs/local-rag.md`](./docs/local-rag.md) for the inject-mode details.
 
 ---
 
-## Plugin 3 — `ovos-memory-plugin-rag`
-
-### How it works
-
-```
-  update_history(exchange)
-      │
-      ├─ POST /v1/embeddings  (embed doc text)
-      ├─ POST /v1/files       (upload doc text)
-      └─ POST /v1/vector_stores/{collection}/files  (attach)
-
-  build_conversation_context(utterance)
-      │
-      ├─ POST /v1/vector_stores/{collection}/search  (top-k by cosine)
-      │        (fallback: local in-process cosine if server unavailable)
-      │
-      └─ inject retrieved docs + recent history + [USER: utterance]
-```
-
-The plugin stores every assistant response (paired with its user prompt) as a document.  At query time it retrieves the `top_k` most similar past exchanges and injects them before the current utterance.  Filtering by `min_score` prevents low-relevance retrievals.
-
-The endpoint contract follows [ovos-persona-server PR #11 (feat/rag)](https://github.com/OpenVoiceOS/ovos-persona-server/pull/11).
-
-### Configuration
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `api_url` | str | `http://192.168.1.200:8000/v1` | Base URL of the OpenAI-compatible server |
-| `collection` | str | `"ovos_memory"` | Vector store / collection name |
-| `top_k` | int | `3` | Maximum retrieved documents per query |
-| `min_score` | float | `0.0` | Minimum cosine similarity for a doc to be injected |
-| `system_prompt` | str | `""` | Persona system prompt |
-| `inject_as_system` | bool | `False` | Bundle retrieved docs into a single SYSTEM message instead of individual ASSISTANT messages |
-| `request_timeout` | int | `30` | HTTP timeout in seconds |
-
-### Persona wiring example
-
-```json
-{
-  "name": "RagBot",
-  "handlers": ["ovos-solver-openai-plugin"],
-  "memory_module": "ovos-memory-plugin-rag",
-  "ovos-memory-plugin-rag": {
-    "api_url": "http://localhost:8337/v1",
-    "collection": "ragbot_memory",
-    "top_k": 4,
-    "min_score": 0.3,
-    "system_prompt": "You are a knowledgeable assistant.",
-    "inject_as_system": true
-  },
-  "ovos-solver-openai-plugin": {
-    "api_url": "http://localhost:8337/v1"
-  }
-}
-```
-
----
-
 ## Architecture
 
 ```
@@ -246,13 +187,13 @@ pip install -e ".[test]"
 pytest tests -v
 
 # unit tests only (fast, stub backends)
-pytest tests/test_longterm.py tests/test_rag.py tests/test_local_rag.py -v
+pytest tests/test_longterm.py tests/test_local_rag.py -v
 
 # e2e: local RAG against the real gguf + chromadb stack (first run downloads the model)
 pytest tests/test_e2e_local_rag.py -v -s
 
-# e2e: long-term + http-rag against in-process FastAPI stubs (no external LLM)
-pytest tests/test_e2e_longterm.py tests/test_e2e_rag.py -v -s
+# e2e: long-term against an in-process FastAPI chat stub (no external LLM)
+pytest tests/test_e2e_longterm.py -v -s
 ```
 
 ---

@@ -23,10 +23,10 @@ Two rules hold for every backend here:
 The persona calls `build_conversation_context` before each turn and
 `update_history` after each exchange.
 
-## Inject modes (RAG backends)
+## Inject modes (local-rag)
 
-Both RAG backends fold retrieved context into the conversation via a configurable
-`inject_mode`. `LocalRAGMemory` supports the full set:
+`LocalRAGMemory` folds retrieved context into the conversation via a configurable
+`inject_mode`, supporting the full set:
 
 | `inject_mode` | What it does | When to use |
 |---|---|---|
@@ -36,30 +36,30 @@ Both RAG backends fold retrieved context into the conversation via a configurabl
 | `user` | Context prepended to the final user message | Backends that ignore system/developer roles |
 | `tool` | A synthetic assistant `tool_calls` turn + its `tool` result carry the context, just before the user turn | Tool-calling brains; presents recall as a search-tool result. Needs the `ovos-plugin-manager` TOOL contract |
 
-## Retrieval knobs (RAG backends)
+## Retrieval knobs (local-rag)
 
 - `max_num_results` — top-k documents per query.
-- `min_score` — drop hits below this score (`null` keeps all). For local RAG,
+- `min_score` — drop hits below this score (`null` keeps all);
   `score = 1 - cosine_distance`.
 - `query_mode` — `utterance` (default) or `history` (fold the last N user turns
   into the search query for follow-up questions).
 
 ## Choosing a backend
 
-| | longterm | **local-rag** | http-rag |
-|---|---|---|---|
-| Entry point | `ovos-memory-plugin-longterm` | `ovos-memory-plugin-local-rag` | `ovos-memory-plugin-rag` |
-| Recall style | rolling **summary** of old turns | **semantic** top-k retrieval | semantic top-k retrieval |
-| External service | a chat/LLM endpoint | **none** (in-process) | an OpenAI-compatible RAG server |
-| Runs fully offline | only if the LLM is local | **yes** | only if the server is local |
-| Persistence | JSON / SQLite | local vector DB (e.g. chromadb) | server-side vector store |
-| Cost per turn | one LLM call every N exchanges | one local embedding + a vector query | HTTP embed + search |
-| Best for | keeping a compact gist of long chats | private/offline assistants needing exact recall | sharing a managed RAG server across clients |
+| | longterm | **local-rag** |
+|---|---|---|
+| Entry point | `ovos-memory-plugin-longterm` | `ovos-memory-plugin-local-rag` |
+| Recall style | rolling **summary** of old turns | **semantic** top-k retrieval |
+| External service | a chat/LLM endpoint | **none** (in-process) |
+| Runs fully offline | only if the LLM is local | **yes** |
+| Persistence | JSON / SQLite | local vector DB (e.g. chromadb) |
+| Cost per turn | one LLM call every N exchanges | one local embedding + a vector query |
+| Best for | keeping a compact gist of long chats | private/offline assistants needing exact recall |
 
 Rule of thumb: for a **private/local/offline** assistant that needs to remember
-specifics, use **local-rag**. For long chats where a running gist is enough and
-you already have an LLM, use **longterm**. Use **http-rag** only when a
-persona-server (or other OpenAI-compatible RAG server) already hosts the store.
+specifics, use **local-rag** — it runs entirely in-process with no network. For
+long chats where a running gist is enough and you already have an LLM endpoint,
+use **longterm**.
 
 The backends are not mutually exclusive at the framework level, but a persona's
 `memory_module` selects exactly one.

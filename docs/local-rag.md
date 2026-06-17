@@ -76,7 +76,7 @@ in `inject_mode="tool"` are likewise stable (`"memrag_<session_id>_<n>"`).
 | `retrieval.query_mode` | `utterance` | `history` folds recent user turns into the query |
 | `retrieval.query_history_turns` | `3` | turns folded when `query_mode="history"` |
 | `context.*` | — | rendering of the retrieved chunk block |
-| `inject_mode` | `system` | see the [inject-modes table](./overview.md#inject-modes-rag-backends) |
+| `inject_mode` | `system` | see the [inject-modes table](./overview.md#inject-modes-local-rag) |
 | `system_prompt` | `""` | persona base prompt |
 | `max_history` | `10` | recent verbatim messages retained per session |
 

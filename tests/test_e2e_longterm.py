@@ -4,8 +4,7 @@ LongTermMemory summarizes older turns through an OpenAI-compatible
 ``/chat/completions`` endpoint. To exercise the full store → summarize →
 persist → rebuild cycle without any external server (local-first, offline,
 deterministic in CI), this spins up an in-process FastAPI stub whose
-``/chat/completions`` echoes the conversation topics back as a "summary" — the
-same in-process-stub pattern used by ``test_e2e_rag.py``.
+``/chat/completions`` echoes the conversation topics back as a "summary".
 
 Run with:  pytest tests/test_e2e_longterm.py -v -s
 """
