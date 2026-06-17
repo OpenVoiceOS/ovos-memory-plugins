@@ -17,4 +17,4 @@ jobs:
       min_coverage: 0
       # LocalRAGMemory inject_mode="tool" + its tests use the ToolCall / MessageRole.TOOL
       # contract, which lives on this ovos-plugin-manager branch until it releases.
-      pre_install_pip: 'git+https://github.com/OpenVoiceOS/ovos-plugin-manager@feat/agent-tool-calling'
+      pre_install_pip: 'git+https://github.com/OpenVoiceOS/ovos-plugin-manager@feat/agent-tool-calling git+https://github.com/OpenVoiceOS/ovos-chromadb-embeddings-plugin@dev'
