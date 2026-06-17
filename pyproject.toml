@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ovos-memory-plugins"
 dynamic = ["version"]
-description = "OVOS OPM memory plugins: long-term rolling summarization and RAG via OpenAI-compatible endpoints"
+description = "OVOS OPM memory plugins: long-term rolling summarization, fully-local in-process RAG, and RAG via OpenAI-compatible endpoints"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.9"
@@ -25,6 +25,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Fully-local in-process RAG stack: a text-embeddings plugin + an EmbeddingsDB
+# plugin. The defaults below are a known-good, fully-offline pairing.
+local-rag = [
+    "ovos-chromadb-embeddings-plugin>=0.3.0a1",
+    "ovos-gguf-plugin>=1.2.0a1",
+]
 test = [
     "pytest>=7",
     "pytest-cov",
@@ -33,11 +39,16 @@ test = [
     "httpx",
     "types-requests",
     "mypy",
+    # union of everything the test suite imports for real (no skips):
+    # the local-rag e2e test exercises the actual gguf + chromadb stack.
+    "ovos-chromadb-embeddings-plugin>=0.3.0a1",
+    "ovos-gguf-plugin>=1.2.0a1",
 ]
 
 [project.entry-points."opm.agents.memory"]
 ovos-memory-plugin-longterm = "ovos_memory_plugins.longterm:LongTermMemory"
 ovos-memory-plugin-rag = "ovos_memory_plugins.rag:RAGMemory"
+ovos-memory-plugin-local-rag = "ovos_memory_plugins.local_rag:LocalRAGMemory"
 
 [tool.setuptools.dynamic]
 version = { attr = "ovos_memory_plugins.version.__version__" }
