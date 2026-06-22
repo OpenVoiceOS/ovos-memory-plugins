@@ -11,7 +11,10 @@ block configures it.
 | File | Backend | Needs |
 |---|---|---|
 | [`persona_local_rag.json`](./persona_local_rag.json) | `ovos-memory-plugin-local-rag` | **nothing external** — fully offline (gguf + chromadb) |
+| [`persona_lexical.json`](./persona_lexical.json) | `ovos-memory-plugin-lexical` | **nothing** — stdlib SQLite FTS5 |
 | [`persona_longterm.json`](./persona_longterm.json) | `ovos-memory-plugin-longterm` | a chat endpoint |
+| [`persona_entity.json`](./persona_entity.json) | `ovos-memory-plugin-entity` | a chat endpoint |
+| [`persona_composite.json`](./persona_composite.json) | `ovos-memory-plugin-composite` | members' needs (here: gguf + chromadb + a chat endpoint) |
 
 ## Runnable scripts
 
@@ -35,4 +38,14 @@ can see exactly which messages each strategy produces.
 
 ```bash
 python examples/demo_inject_modes.py
+```
+
+### `demo_composite.py` — hybrid fusion offline
+
+Fuses a semantic (`local-rag`) and a lexical (`lexical`) member and prints the
+fused hits under each fusion mode. Uses a toy in-process embedder, so it needs no
+model download and no network.
+
+```bash
+python examples/demo_composite.py
 ```

@@ -5,21 +5,24 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ovos-memory-plugins"
 dynamic = ["version"]
-description = "OVOS OPM memory plugins: local-first long-term rolling summarization and fully-local in-process RAG"
+description = "OVOS OPM memory plugins: local-first conversational memory — summarization, RAG, lexical, recency, entity facts, and an ensemble orchestrator"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.9"
 authors = [
     { name = "JarbasAi", email = "jarbasai@mailfence.com" }
 ]
-keywords = ["ovos", "plugin", "memory", "rag", "llm", "summarization"]
+keywords = ["ovos", "plugin", "memory", "rag", "llm", "summarization",
+            "lexical", "fts5", "hybrid", "ensemble", "composite", "entity"]
 classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "ovos-plugin-manager>=2.3.0a1,<3.0.0",
+    # 2.7.0a1 is the first release carrying the MessageRole.TOOL / ToolCall contract
+    # used by inject_mode="tool".
+    "ovos-plugin-manager>=2.7.0a1,<3.0.0",
     "ovos-utils>=0.0.1,<1.0.0",
     "requests>=2.28",
 ]
@@ -28,9 +31,8 @@ dependencies = [
 # Fully-local in-process RAG stack: a text-embeddings plugin + an EmbeddingsDB
 # plugin. The defaults below are a known-good, fully-offline pairing.
 local-rag = [
-    # ovos-chromadb-embeddings-plugin has only a 0.0.0 placeholder on PyPI; install
-    # the real plugin from git (CI does this via pre_install_pip) until it releases.
-    "ovos-chromadb-embeddings-plugin",
+    # 0.0.0 on PyPI is a placeholder; 0.3.0a4 is the first real release.
+    "ovos-chromadb-embeddings-plugin>=0.3.0a4",
     "ovos-gguf-plugin",
 ]
 test = [
@@ -43,14 +45,17 @@ test = [
     "mypy",
     # union of everything the test suite imports for real (no skips):
     # the local-rag e2e test exercises the actual gguf + chromadb stack.
-    # chromadb is git-installed in CI (pre_install_pip) — PyPI has only a 0.0.0 placeholder.
-    "ovos-chromadb-embeddings-plugin",
+    "ovos-chromadb-embeddings-plugin>=0.3.0a4",
     "ovos-gguf-plugin",
 ]
 
 [project.entry-points."opm.agents.memory"]
 ovos-memory-plugin-longterm = "ovos_memory_plugins.longterm:LongTermMemory"
 ovos-memory-plugin-local-rag = "ovos_memory_plugins.local_rag:LocalRAGMemory"
+ovos-memory-plugin-lexical = "ovos_memory_plugins.lexical:LexicalMemory"
+ovos-memory-plugin-recency = "ovos_memory_plugins.recency:RecencyMemory"
+ovos-memory-plugin-entity = "ovos_memory_plugins.entity:EntityMemory"
+ovos-memory-plugin-composite = "ovos_memory_plugins.composite:CompositeMemory"
 
 [tool.setuptools.dynamic]
 version = { attr = "ovos_memory_plugins.version.__version__" }
