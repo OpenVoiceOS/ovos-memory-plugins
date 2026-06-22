@@ -13,7 +13,3 @@ jobs:
       python_versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
       install_extras: 'test'
       test_path: 'tests'
-      # ovos-plugin-manager (incl. the MessageRole.TOOL contract) resolves from PyPI
-      # via the pyproject constraint; chromadb on PyPI is only a 0.0.0 placeholder, so
-      # the local-rag e2e stack still needs it from git until it releases.
-      pre_install_pip: 'git+https://github.com/OpenVoiceOS/ovos-chromadb-embeddings-plugin@dev'

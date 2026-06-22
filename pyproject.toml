@@ -31,9 +31,8 @@ dependencies = [
 # Fully-local in-process RAG stack: a text-embeddings plugin + an EmbeddingsDB
 # plugin. The defaults below are a known-good, fully-offline pairing.
 local-rag = [
-    # ovos-chromadb-embeddings-plugin has only a 0.0.0 placeholder on PyPI; install
-    # the real plugin from git (CI does this via pre_install_pip) until it releases.
-    "ovos-chromadb-embeddings-plugin",
+    # 0.0.0 on PyPI is a placeholder; 0.3.0a4 is the first real release.
+    "ovos-chromadb-embeddings-plugin>=0.3.0a4",
     "ovos-gguf-plugin",
 ]
 test = [
@@ -46,8 +45,7 @@ test = [
     "mypy",
     # union of everything the test suite imports for real (no skips):
     # the local-rag e2e test exercises the actual gguf + chromadb stack.
-    # chromadb is git-installed in CI (pre_install_pip) — PyPI has only a 0.0.0 placeholder.
-    "ovos-chromadb-embeddings-plugin",
+    "ovos-chromadb-embeddings-plugin>=0.3.0a4",
     "ovos-gguf-plugin",
 ]
 
