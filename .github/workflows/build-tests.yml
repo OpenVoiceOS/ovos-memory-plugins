@@ -13,6 +13,6 @@ jobs:
       python_versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
       install_extras: 'test'
       test_path: 'tests'
-      # LocalRAGMemory inject_mode="tool" + its tests use the ToolCall / MessageRole.TOOL
-      # contract, which lives on this ovos-plugin-manager branch until it releases.
-      pre_install_pip: 'git+https://github.com/OpenVoiceOS/ovos-plugin-manager@feat/agent-tool-calling git+https://github.com/OpenVoiceOS/ovos-chromadb-embeddings-plugin@dev'
+      # inject_mode="tool" uses the ToolCall / MessageRole.TOOL contract; chromadb on
+      # PyPI is a 0.0.0 placeholder. Both are pulled from dev until they release.
+      pre_install_pip: 'git+https://github.com/OpenVoiceOS/ovos-plugin-manager@dev git+https://github.com/OpenVoiceOS/ovos-chromadb-embeddings-plugin@dev'
