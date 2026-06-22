@@ -1,15 +1,21 @@
 # ovos-memory-plugins
 
-[OVOS](https://github.com/OpenVoiceOS) `opm.agents.memory` plugins bundled in one package:
+[OVOS](https://github.com/OpenVoiceOS) local-first `opm.agents.memory` plugins bundled in one package:
 
 | Entry point | Class | Purpose | Needs |
 |---|---|---|---|
 | `ovos-memory-plugin-longterm` | `LongTermMemory` | Rolling summarization of older turns via an OpenAI-compatible chat endpoint; persists summary + recent window per session | a chat endpoint |
-| `ovos-memory-plugin-local-rag` | `LocalRAGMemory` | **Fully-local in-process RAG** — embeds and stores every exchange in a local vector DB via OVOS embeddings plugins, retrieves top-k relevant prior turns and injects them per `inject_mode`. No network, no cloud key. | local plugins only |
+| `ovos-memory-plugin-local-rag` | `LocalRAGMemory` | **Fully-local in-process semantic RAG** — embeds every exchange in a local vector DB, retrieves top-k relevant prior turns and injects them per `inject_mode`. No network, no cloud key. | local plugins only |
+| `ovos-memory-plugin-lexical` | `LexicalMemory` | **Keyword recall** over stored exchanges via SQLite FTS5 + BM25. The complement to semantic RAG for exact terms. | nothing (stdlib) |
+| `ovos-memory-plugin-recency` | `RecencyMemory` | Sliding short-term buffer bounded by count and optional age (decay). | nothing (stdlib) |
+| `ovos-memory-plugin-entity` | `EntityMemory` | Extracts **durable user facts** from each exchange (by chaining an LLM prompt) and recalls them every turn. | a chat endpoint |
+| `ovos-memory-plugin-composite` | `CompositeMemory` | **Ensemble orchestrator** — loads several of the above via OPM and consolidates them (hybrid recall via rank fusion). | members' needs |
 
-Both plugins implement `AgentContextManager` from `ovos-plugin-manager` (merged in [OPM PR #363](https://github.com/OpenVoiceOS/ovos-plugin-manager/pull/363)) and are consumed by `ovos-persona` (see [PR #143](https://github.com/OpenVoiceOS/ovos-persona/pull/143)) via the `memory_module` key in persona JSON.
+All implement `AgentContextManager` from `ovos-plugin-manager` (merged in [OPM PR #363](https://github.com/OpenVoiceOS/ovos-plugin-manager/pull/363)) and are consumed by `ovos-persona` (see [PR #143](https://github.com/OpenVoiceOS/ovos-persona/pull/143)) via the `memory_module` key in persona JSON.
 
-`LocalRAGMemory` is the local-first headline: it runs RAG entirely in-process so a private/offline assistant gets long-term recall without standing up any server. `LongTermMemory` carries a compact running summary and needs only a chat endpoint.
+The headline is **hybrid, local-first recall**: run `local-rag` (semantics) and `lexical` (keywords) together under `composite`, fused with Reciprocal Rank Fusion, so a private/offline assistant gets robust long-term recall without standing up any server. Add `entity` for durable user facts and `recency` for a cheap short-term window.
+
+The retrieval backends (`local-rag`, `lexical`) and `composite` share a `BaseRetrievalMemory` that provides history, the five `inject_mode` strategies, and the context renderer — a concrete retriever only implements *store* and *query*.
 
 Full docs: [`docs/`](./docs/) (overview + a page per backend). Runnable examples and persona JSON: [`examples/`](./examples/).
 
@@ -159,13 +165,64 @@ See [`docs/local-rag.md`](./docs/local-rag.md) for the inject-mode details.
 
 ---
 
+## Plugin 3 — `ovos-memory-plugin-lexical`
+
+Keyword/lexical recall via SQLite FTS5 + BM25 — **zero extra dependencies**, fully
+local, persistent. Stores each exchange and recalls by keyword match; the natural
+complement to semantic RAG for exact terms (names, codes, rare words). See
+[`docs/lexical.md`](./docs/lexical.md).
+
+## Plugin 4 — `ovos-memory-plugin-recency`
+
+A sliding short-term buffer bounded by message count and optional age (decay).
+The lightest memory — no LLM, no embeddings, zero deps. Great as a persona's
+plain short-term memory or as the `primary` history member of a composite. See
+[`docs/recency.md`](./docs/recency.md).
+
+## Plugin 5 — `ovos-memory-plugin-entity`
+
+Extracts **durable facts** about the user from each exchange by chaining an
+extraction prompt to a local OpenAI-compatible endpoint, then re-injects them
+every turn — so the assistant remembers *who the user is* across sessions. See
+[`docs/entity.md`](./docs/entity.md).
+
+## Plugin 6 — `ovos-memory-plugin-composite`
+
+The **ensemble orchestrator**. Loads several member memories via OPM and
+consolidates them: retriever members (`local-rag`, `lexical`) are **fused** into
+one ranked list (Reciprocal Rank Fusion by default, which is immune to score-scale
+mismatch between backends), while context members (`longterm`, `entity`,
+`recency`) contribute their system blocks. `update_history` is written through to
+every member. This is how one `memory_module` slot becomes "combine many
+memories" — e.g. hybrid semantic + lexical recall plus durable facts. See
+[`docs/composite.md`](./docs/composite.md).
+
+```json
+{
+  "memory_module": "ovos-memory-plugin-composite",
+  "ovos-memory-plugin-composite": {
+    "members": [
+      {"module": "ovos-memory-plugin-local-rag", "config": {"collection": "kb"}},
+      {"module": "ovos-memory-plugin-lexical", "config": {"db_path": "~/.local/share/ovos/lex.db"}}
+    ],
+    "fusion": "rrf",
+    "inject_mode": "system"
+  }
+}
+```
+
+---
+
 ## Architecture
 
 ```
 ovos-persona (PR #143)
     └── Persona.__init__
-            └── load_memory_plugin("ovos-memory-plugin-longterm")
-                    └── LongTermMemory(config={...})
+            └── load_memory_plugin("ovos-memory-plugin-composite")
+                    └── CompositeMemory(config={...})
+                            ├── load_memory_plugin("ovos-memory-plugin-local-rag")  (retriever)
+                            ├── load_memory_plugin("ovos-memory-plugin-lexical")    (retriever)
+                            └── load_memory_plugin("ovos-memory-plugin-entity")     (context)
 
 ovos-plugin-manager (PR #363)
     └── AgentContextManager
@@ -174,7 +231,7 @@ ovos-plugin-manager (PR #363)
             └── build_conversation_context(utterance, session_id) → List[AgentMessage]
 ```
 
-Personas call `build_conversation_context` before every LLM request.  They call `update_history` after each exchange to keep both plugins' state current.
+Personas call `build_conversation_context` before every LLM request. They call `update_history` after each exchange to keep every plugin's state current.
 
 ---
 
