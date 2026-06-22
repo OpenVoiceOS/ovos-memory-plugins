@@ -9,8 +9,9 @@ import pytest
 
 from ovos_plugin_manager.templates.agents import AgentMessage, MessageRole
 from ovos_memory_plugins.longterm import (
-    LongTermMemory, _JsonStore, _SqliteStore, _messages_to_text, _chat_complete,
+    LongTermMemory, _JsonStore, _SqliteStore, _messages_to_text,
 )
+from ovos_memory_plugins._llm import chat_complete
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +144,7 @@ def test_update_history_merges_consecutive_assistant(tmp_path):
 # Summarization triggering
 # ---------------------------------------------------------------------------
 
-@patch("ovos_memory_plugins.longterm._chat_complete", return_value="Summary text")
+@patch("ovos_memory_plugins.longterm.chat_complete", return_value="Summary text")
 def test_summarization_triggered_at_threshold(mock_llm, tmp_path):
     """After summarize_every=2 exchanges the LLM should be called once."""
     plugin = _make_plugin(tmp_path, summarize_every=2, recent_window=1)
@@ -154,7 +155,7 @@ def test_summarization_triggered_at_threshold(mock_llm, tmp_path):
     assert plugin._cache["s1"]["exchange_count"] == 0
 
 
-@patch("ovos_memory_plugins.longterm._chat_complete", return_value="Summary X")
+@patch("ovos_memory_plugins.longterm.chat_complete", return_value="Summary X")
 def test_summarization_not_triggered_below_threshold(mock_llm, tmp_path):
     plugin = _make_plugin(tmp_path, summarize_every=5, recent_window=2)
     for i in range(3):
@@ -162,7 +163,7 @@ def test_summarization_not_triggered_below_threshold(mock_llm, tmp_path):
     assert not mock_llm.called
 
 
-@patch("ovos_memory_plugins.longterm._chat_complete", return_value="Rolling summary")
+@patch("ovos_memory_plugins.longterm.chat_complete", return_value="Rolling summary")
 def test_rolling_summary_accumulates(mock_llm, tmp_path):
     """Second summarization should include prior summary in prompt."""
     plugin = _make_plugin(tmp_path, summarize_every=2, recent_window=0)
@@ -179,7 +180,7 @@ def test_rolling_summary_accumulates(mock_llm, tmp_path):
 # build_conversation_context
 # ---------------------------------------------------------------------------
 
-@patch("ovos_memory_plugins.longterm._chat_complete", return_value="Summ")
+@patch("ovos_memory_plugins.longterm.chat_complete", return_value="Summ")
 def test_build_context_includes_summary(mock_llm, tmp_path):
     plugin = _make_plugin(tmp_path, summarize_every=2, recent_window=1,
                           system_prompt="You are a bot")
@@ -217,7 +218,7 @@ def test_build_context_no_trailing_user_from_history(tmp_path):
 # Persistence round-trip
 # ---------------------------------------------------------------------------
 
-@patch("ovos_memory_plugins.longterm._chat_complete", return_value="Persisted summary")
+@patch("ovos_memory_plugins.longterm.chat_complete", return_value="Persisted summary")
 def test_persistence_json_roundtrip(mock_llm, tmp_path):
     # recent_window=0 so every message is summarized (nothing kept verbatim)
     plugin = _make_plugin(tmp_path, summarize_every=2, backend="json", recent_window=0)
@@ -230,7 +231,7 @@ def test_persistence_json_roundtrip(mock_llm, tmp_path):
     assert plugin._cache["s1"]["summary"] == "Persisted summary"
 
 
-@patch("ovos_memory_plugins.longterm._chat_complete", return_value="Persisted sqlite")
+@patch("ovos_memory_plugins.longterm.chat_complete", return_value="Persisted sqlite")
 def test_persistence_sqlite_roundtrip(mock_llm, tmp_path):
     plugin = _make_plugin(tmp_path, summarize_every=2, backend="sqlite", recent_window=0)
     for i in range(2):
@@ -245,7 +246,7 @@ def test_persistence_sqlite_roundtrip(mock_llm, tmp_path):
 # Error resilience
 # ---------------------------------------------------------------------------
 
-@patch("ovos_memory_plugins.longterm._chat_complete", side_effect=Exception("LLM down"))
+@patch("ovos_memory_plugins.longterm.chat_complete", side_effect=Exception("LLM down"))
 def test_summarization_error_does_not_crash(mock_llm, tmp_path):
     plugin = _make_plugin(tmp_path, summarize_every=2)
     for i in range(2):
@@ -258,7 +259,7 @@ def test_summarization_error_does_not_crash(mock_llm, tmp_path):
 # recent_window enforcement
 # ---------------------------------------------------------------------------
 
-@patch("ovos_memory_plugins.longterm._chat_complete", return_value="S")
+@patch("ovos_memory_plugins.longterm.chat_complete", return_value="S")
 def test_recent_window_enforced(mock_llm, tmp_path):
     """After summarization only recent_window exchanges should remain."""
     plugin = _make_plugin(tmp_path, summarize_every=3, recent_window=1)
@@ -272,12 +273,12 @@ def test_recent_window_enforced(mock_llm, tmp_path):
 # _chat_complete direct
 # ---------------------------------------------------------------------------
 
-@patch("ovos_memory_plugins.longterm.requests.post")
+@patch("ovos_memory_plugins._llm.requests.post")
 def test_chat_complete_returns_text(mock_post):
     mock_resp = MagicMock()
     mock_resp.json.return_value = {"choices": [{"message": {"content": "  answer  "}}]}
     mock_post.return_value = mock_resp
-    result = _chat_complete("http://mock/v1", "m", [{"role": "user", "content": "hi"}])
+    result = chat_complete("http://mock/v1", "m", [{"role": "user", "content": "hi"}])
     assert result == "answer"
     mock_resp.raise_for_status.assert_called_once()
 
@@ -310,7 +311,7 @@ def test_json_store_save_corrupted_then_recovers(tmp_path):
 # _resolve_model auto-detect
 # ---------------------------------------------------------------------------
 
-@patch("ovos_memory_plugins.longterm.requests.get")
+@patch("ovos_memory_plugins._llm.requests.get")
 def test_resolve_model_auto_detect(mock_get, tmp_path):
     mock_resp = MagicMock()
     mock_resp.json.return_value = {"data": [{"id": "gemma-2b"}]}
@@ -321,7 +322,7 @@ def test_resolve_model_auto_detect(mock_get, tmp_path):
     assert plugin.model == "gemma-2b"
 
 
-@patch("ovos_memory_plugins.longterm.requests.get", side_effect=Exception("conn refused"))
+@patch("ovos_memory_plugins._llm.requests.get", side_effect=Exception("conn refused"))
 def test_resolve_model_failure_is_silent(mock_get, tmp_path):
     plugin = _make_plugin(tmp_path, model="fallback")
     plugin.model = ""

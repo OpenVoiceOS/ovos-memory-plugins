@@ -16,24 +16,15 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-import requests
 from ovos_plugin_manager.templates.agents import AgentContextManager, AgentMessage, MessageRole
 from ovos_utils.log import LOG
+
+from ovos_memory_plugins._llm import chat_complete, resolve_model
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _chat_complete(api_url: str, model: str, messages: List[Dict], max_tokens: int = 256,
-                   timeout: int = 30) -> str:
-    """Send a single chat-completion request; return the assistant text."""
-    url = api_url.rstrip("/") + "/chat/completions"
-    payload = {"model": model, "messages": messages, "max_tokens": max_tokens}
-    resp = requests.post(url, json=payload, timeout=timeout)
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"].strip()
-
 
 def _messages_to_text(messages: List[AgentMessage]) -> str:
     """Flatten a list of AgentMessages into a readable transcript."""
@@ -183,16 +174,9 @@ class LongTermMemory(AgentContextManager):
 
     def _resolve_model(self):
         """Auto-detect the first available model from the endpoint."""
-        try:
-            url = self.api_url.rstrip("/") + "/models"
-            resp = requests.get(url, timeout=10)
-            resp.raise_for_status()
-            models = resp.json().get("data") or resp.json().get("models", [])
-            if models:
-                self.model = models[0].get("id") or models[0].get("name", "")
-                LOG.debug(f"LongTermMemory: auto-selected model '{self.model}'")
-        except Exception as exc:
-            LOG.warning(f"LongTermMemory: could not auto-detect model: {exc}")
+        model = resolve_model(self.api_url)
+        if model:
+            self.model = model
 
     def _load_session(self, session_id: str) -> Dict:
         if session_id not in self._cache:
@@ -241,7 +225,7 @@ class LongTermMemory(AgentContextManager):
         prompt = "\n".join(prompt_parts)
 
         try:
-            new_summary = _chat_complete(
+            new_summary = chat_complete(
                 api_url=self.api_url,
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
