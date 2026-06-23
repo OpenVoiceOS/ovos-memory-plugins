@@ -71,6 +71,15 @@ def test_punctuation_is_sanitized():
     assert any("Paris" in h.content for h in hits)
 
 
+def test_fts5_operator_words_are_not_misparsed():
+    p = _make()
+    _ingest(p, "s1", [("Do you like rock and roll or jazz?",
+                       "Rock and roll is great.")])
+    # words that are FTS5 operators (and/or/not/near) must be treated as terms
+    hits = p.search("rock and roll or jazz near me")
+    assert any("Rock and roll" in h.content for h in hits)
+
+
 def test_search_returns_memoryhit_shape():
     p = _make()
     _ingest(p, "s1", GEO)

@@ -20,7 +20,7 @@ fusion just by exposing that method.
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Dict, List, Tuple
 
 
@@ -74,9 +74,9 @@ def fuse_rrf(lists: RankedLists, k: int = 60) -> List[MemoryHit]:
             if key not in fused or hit.score > fused[key].score:
                 fused[key] = hit
     ranked = sorted(fused.values(), key=lambda h: scores[_content_key(h)], reverse=True)
-    for h in ranked:
-        h.metadata = {**h.metadata, "fusion_score": scores[_content_key(h)]}
-    return ranked
+    # return fresh objects — never mutate the hits a member retriever handed us
+    return [replace(h, metadata={**h.metadata, "fusion_score": scores[_content_key(h)]})
+            for h in ranked]
 
 
 def _normalized(hits: List[MemoryHit]) -> Dict[str, float]:
@@ -109,9 +109,8 @@ def fuse_weighted(lists: RankedLists) -> List[MemoryHit]:
             if key not in fused or hit.score > fused[key].score:
                 fused[key] = hit
     ranked = sorted(fused.values(), key=lambda h: scores[_content_key(h)], reverse=True)
-    for h in ranked:
-        h.metadata = {**h.metadata, "fusion_score": scores[_content_key(h)]}
-    return ranked
+    return [replace(h, metadata={**h.metadata, "fusion_score": scores[_content_key(h)]})
+            for h in ranked]
 
 
 def fuse_merge(lists: RankedLists, dedup: bool = True) -> List[MemoryHit]:

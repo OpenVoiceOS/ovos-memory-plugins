@@ -163,6 +163,17 @@ def test_summarization_not_triggered_below_threshold(mock_llm, tmp_path):
     assert not mock_llm.called
 
 
+def test_update_history_does_not_mutate_caller_messages(tmp_path):
+    """A CompositeMemory shares one message list across members — never mutate it."""
+    plugin = _make_plugin(tmp_path, summarize_every=100)
+    plugin.update_history([_assistant("part1")], "s1")
+    msg = _assistant("part2")
+    plugin.update_history([msg], "s1")  # triggers consecutive-assistant merge
+    assert msg.content == "part2"  # caller's object untouched
+    # but the stored/merged history still contains both
+    assert "part1" in plugin.get_history("s1")[0].content
+
+
 @patch("ovos_memory_plugins.longterm.chat_complete", return_value="Rolling summary")
 def test_rolling_summary_accumulates(mock_llm, tmp_path):
     """Second summarization should include prior summary in prompt."""

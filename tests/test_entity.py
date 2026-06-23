@@ -26,6 +26,14 @@ def test_extraction_stores_facts(mock_llm):
     assert p._load_facts("s1") == ["User's name is Alice", "Likes tea"]
 
 
+@patch("ovos_memory_plugins.entity.chat_complete",
+       return_value="1. User's name is Alice\n2) Likes tea\n- Has a dog")
+def test_extraction_parses_numbered_and_bulleted(mock_llm):
+    p = _make()
+    p.update_history([_user("hi"), _assistant("hello")], "s1")
+    assert p._load_facts("s1") == ["User's name is Alice", "Likes tea", "Has a dog"]
+
+
 @patch("ovos_memory_plugins.entity.chat_complete", return_value="NONE")
 def test_none_yields_no_facts(mock_llm):
     p = _make()

@@ -9,6 +9,7 @@ from ovos_memory_plugins.common import MemoryHit, fuse_rrf
 from ovos_memory_plugins.composite import CompositeMemory
 from ovos_memory_plugins.local_rag import LocalRAGMemory
 from ovos_memory_plugins.lexical import LexicalMemory
+from ovos_memory_plugins.recency import RecencyMemory
 
 
 def _user(text): return AgentMessage(role=MessageRole.USER, content=text)
@@ -49,9 +50,16 @@ class _PlainSummary(_Stub):
                 _assistant("prior"), _user(utterance)]
 
 
+class _FixedRetriever(_Stub):
+    """Returns the exact MemoryHit objects from config['_objs'] (to test mutation)."""
+    def search(self, query, session_id=None, top_k=None):
+        return list(self.config.get("_objs", []))
+
+
 _REGISTRY = {
     "retr-a": _StubRetriever, "retr-b": _StubRetriever, "retr-c": _StubRetriever,
     "boom": _BoomRetriever, "plain": _PlainSummary, "hist": _Stub,
+    "fixed": _FixedRetriever, "recency": RecencyMemory,
     "local-rag": LocalRAGMemory, "lexical": LexicalMemory,
 }
 
@@ -193,6 +201,34 @@ def test_contract_last_is_user_all_inject_modes(mode):
 def test_invalid_fusion_raises():
     with pytest.raises(ValueError):
         _build([{"module": "retr-a"}], fusion="nope")
+
+
+def test_fusion_does_not_mutate_member_hits():
+    # a member may cache and reuse MemoryHit objects; fusion/tagging must not touch them
+    obj = MemoryHit(content="x", source="d0", score=1.0)
+    comp = _build([{"module": "fixed", "config": {"_objs": [obj]}}], fusion="rrf")
+    fused = comp._gather("q", "s1")
+    assert obj.metadata == {}                       # original untouched
+    assert fused[0].metadata.get("retriever") == "fixed"  # the copy is tagged
+    assert "fusion_score" in fused[0].metadata
+
+
+def test_tool_mode_with_dangling_user_primary_is_well_formed():
+    # recency primary whose window ends in an unanswered user turn + tool inject:
+    # the synthetic tool exchange must stay valid and the utterance stay last
+    members = [
+        {"module": "recency"},
+        {"module": "retr-a", "config": {"_hits": [("ctx", 1.0)]}},
+    ]
+    comp = _build(members, primary="recency", inject_mode="tool")
+    comp.update_history([_user("earlier"), _assistant("reply")], "s1")
+    comp.update_history([_user("dangling")], "s1")   # no assistant reply yet
+    ctx = comp.build_conversation_context("now", "s1")
+    assert all(m.content != "dangling" for m in ctx)
+    assert ctx[-1].role == MessageRole.USER and ctx[-1].content == "now"
+    idx = next(i for i, m in enumerate(ctx) if m.role == MessageRole.ASSISTANT and m.tool_calls)
+    assert ctx[idx + 1].role == MessageRole.TOOL
+    assert ctx[idx - 1].role != MessageRole.USER     # tool-call replies to an assistant turn, not a user
 
 
 # --------------------------------------------------------------------------- hybrid e2e

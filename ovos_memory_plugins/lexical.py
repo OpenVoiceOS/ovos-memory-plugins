@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -79,6 +80,9 @@ class LexicalMemory(BaseRetrievalMemory):
         # injectable connection for tests
         self._con: Optional[sqlite3.Connection] = self.config.get("_con")
         self.fts5_available: bool = True
+        # the connection is shared across sessions/threads (check_same_thread=False),
+        # so serialize all access — sqlite3 connections are not safe for concurrent use
+        self._lock = threading.Lock()
 
     # ------------------------------------------------------------------ backend
     @property
@@ -109,10 +113,11 @@ class LexicalMemory(BaseRetrievalMemory):
                         metadata: Dict[str, Any]) -> None:
         if not self.fts5_available:
             return
-        self.con.execute(
-            f"INSERT INTO {self.table}(doc_id, session_id, content) VALUES (?, ?, ?)",
-            (doc_id, session_id, text))
-        self.con.commit()
+        with self._lock:
+            self.con.execute(
+                f"INSERT INTO {self.table}(doc_id, session_id, content) VALUES (?, ?, ?)",
+                (doc_id, session_id, text))
+            self.con.commit()
 
     def _query_backend(self, query: str, top_k: int) -> List[MemoryHit]:
         if not self.fts5_available:
@@ -122,10 +127,11 @@ class LexicalMemory(BaseRetrievalMemory):
             return []
         # bm25() returns lower (more negative) for better matches; negate for a
         # positive "higher = better" score.
-        rows = self.con.execute(
-            f"SELECT doc_id, content, bm25({self.table}) AS rank "
-            f"FROM {self.table} WHERE {self.table} MATCH ? ORDER BY rank LIMIT ?",
-            (match, top_k)).fetchall()
+        with self._lock:
+            rows = self.con.execute(
+                f"SELECT doc_id, content, bm25({self.table}) AS rank "
+                f"FROM {self.table} WHERE {self.table} MATCH ? ORDER BY rank LIMIT ?",
+                (match, top_k)).fetchall()
         return [MemoryHit(content=content, source=doc_id, score=-float(rank))
                 for doc_id, content, rank in rows]
 
@@ -137,4 +143,5 @@ class LexicalMemory(BaseRetrievalMemory):
         and treats the query as "any of these words".
         """
         terms = _WORD_RE.findall(query.lower())
-        return " OR ".join(terms)
+        # quote each term so it is always a literal, never an FTS5 operator/keyword
+        return " OR ".join(f'"{t}"' for t in terms)

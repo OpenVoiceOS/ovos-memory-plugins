@@ -240,6 +240,10 @@ class BaseRetrievalMemory(AgentContextManager, abc.ABC):
                 block = f"{self.header}\n\nContext:\n{context}"
                 messages.append(AgentMessage(role=role, content=block))
 
+        # the current utterance is appended last; drop any dangling trailing user
+        # turn so it isn't duplicated, or left unanswered before a synthetic tool turn
+        while history and history[-1].role == MessageRole.USER:
+            history = history[:-1]
         messages.extend(history)
 
         # inject_mode="tool": a synthetic search tool-call + result, just before the

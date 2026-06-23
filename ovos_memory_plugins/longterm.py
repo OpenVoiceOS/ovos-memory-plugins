@@ -164,9 +164,7 @@ class LongTermMemory(AgentContextManager):
 
         # in-memory cache: session_id → {summary, recent, exchange_count}
         self._cache: Dict[str, Dict] = {}
-
-        if not self.model:
-            self._resolve_model()
+        # model is resolved lazily on first summarization — no network I/O at construction
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -213,6 +211,9 @@ class LongTermMemory(AgentContextManager):
             rec["exchange_count"] = 0
             return
 
+        if not self.model:
+            self._resolve_model()
+
         transcript = _messages_to_text(to_summarize)
         previous_summary = rec["summary"]
 
@@ -255,21 +256,26 @@ class LongTermMemory(AgentContextManager):
         rec = self._load_session(session_id)
         recent = rec["recent"]
 
-        if recent:
+        # work on a local copy; never mutate the caller's messages (a CompositeMemory
+        # passes the same list to every member)
+        incoming = list(new_messages)
+        if recent and incoming:
             last = recent[-1]
-            first_new = new_messages[0]
+            first_new = incoming[0]
             # drop hanging user messages
             if first_new.role == MessageRole.USER and last.role == MessageRole.USER:
                 recent.pop()
-            # merge consecutive assistant messages
-            if first_new.role == MessageRole.ASSISTANT and last.role == MessageRole.ASSISTANT:
-                new_messages[0].content = last.content + "\n" + first_new.content
+            # merge consecutive assistant messages into a fresh message
+            elif first_new.role == MessageRole.ASSISTANT and last.role == MessageRole.ASSISTANT:
+                incoming[0] = AgentMessage(
+                    role=MessageRole.ASSISTANT,
+                    content=last.content + "\n" + first_new.content)
                 recent.pop()
 
-        recent.extend(new_messages)
+        recent.extend(incoming)
 
         # count exchanges: each assistant message = one exchange
-        for m in new_messages:
+        for m in incoming:
             if m.role == MessageRole.ASSISTANT:
                 rec["exchange_count"] += 1
 

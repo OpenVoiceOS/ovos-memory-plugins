@@ -33,6 +33,7 @@ Configuration (persona JSON block)::
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -102,9 +103,7 @@ class EntityMemory(AgentContextManager):
             self._store = None
         # session_id → list[str] facts (in-memory cache)
         self._facts: Dict[str, List[str]] = {}
-
-        if not self.model:
-            self.model = resolve_model(self.api_url)
+        # model is resolved lazily on first extraction — no network I/O at construction
 
     # ------------------------------------------------------------------ facts
     def _load_facts(self, session_id: str) -> List[str]:
@@ -140,7 +139,8 @@ class EntityMemory(AgentContextManager):
             return []
         out = []
         for line in text.splitlines():
-            line = line.strip().lstrip("-*•").strip()
+            # strip a leading bullet ("- ", "* ", "• ") or enumerator ("1.", "2)")
+            line = re.sub(r"^\s*(?:[-*•]|\d+[.)])\s*", "", line).strip()
             if line and line.upper() != "NONE":
                 out.append(line)
         return out

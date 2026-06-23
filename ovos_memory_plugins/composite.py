@@ -47,6 +47,7 @@ retriever members don't collide, and leave ``system_prompt`` to the composite
 """
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, Dict, List, Optional, Tuple
 
 from ovos_plugin_manager.agents import load_memory_plugin
@@ -159,9 +160,9 @@ class CompositeMemory(BaseRetrievalMemory):
             except Exception as e:
                 LOG.error(f"CompositeMemory: member {name!r} search failed: {e}")
                 hits = []
-            for h in hits:
-                h.metadata = {**(h.metadata or {}), "retriever": name}
-            ranked_lists.append((name, weight, hits))
+            tagged = [replace(h, metadata={**(h.metadata or {}), "retriever": name})
+                      for h in hits]
+            ranked_lists.append((name, weight, tagged))
         fused = fuse(self.fusion, ranked_lists, rrf_k=self.rrf_k, dedup=self.dedup)
         return fused[: self.max_num_results]
 
