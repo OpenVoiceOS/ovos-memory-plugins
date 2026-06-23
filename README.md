@@ -1,5 +1,10 @@
 # ovos-memory-plugins
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![PyPI](https://img.shields.io/pypi/v/ovos-memory-plugins.svg)](https://pypi.org/project/ovos-memory-plugins/)
+[![Build](https://github.com/OpenVoiceOS/ovos-memory-plugins/actions/workflows/build-tests.yml/badge.svg)](https://github.com/OpenVoiceOS/ovos-memory-plugins/actions/workflows/build-tests.yml)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
+
 **Give your [OpenVoiceOS](https://openvoiceos.org) persona a memory.**
 
 By default a chat persona is amnesiac: every turn starts from scratch. A *memory
@@ -239,6 +244,10 @@ The end-to-end RAG test exercises the real embeddings + vector-store stack; its
 first run downloads the embeddings model into the shared cache, then is fast.
 
 ---
+
+## License
+
+Apache License 2.0 — see [LICENSE](./LICENSE).
 
 ## Credits
 

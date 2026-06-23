@@ -20,6 +20,9 @@ alongside heavier recall backends.
 `build_conversation_context` returns `[system?] + recent window + [USER utterance]`,
 pruning any trailing user turn so the new utterance is the only tail user message.
 
+JSON persistence (`db_path`) stores message role and content; tool-call structure
+(`tool_calls`, `tool_call_id`) is not persisted across restarts.
+
 ## Example
 
 ```json

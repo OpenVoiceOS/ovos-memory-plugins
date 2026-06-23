@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "OVOS OPM memory plugins: local-first conversational memory — summarization, RAG, lexical, recency, entity facts, and an ensemble orchestrator"
 readme = "README.md"
 license = { text = "Apache-2.0" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "JarbasAi", email = "jarbasai@mailfence.com" }
 ]
