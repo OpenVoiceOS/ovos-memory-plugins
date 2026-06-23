@@ -1,237 +1,228 @@
 # ovos-memory-plugins
 
-[OVOS](https://github.com/OpenVoiceOS) local-first `opm.agents.memory` plugins bundled in one package:
+**Give your [OpenVoiceOS](https://openvoiceos.org) persona a memory.**
 
-| Entry point | Class | Purpose | Needs |
-|---|---|---|---|
-| `ovos-memory-plugin-longterm` | `LongTermMemory` | Rolling summarization of older turns via an OpenAI-compatible chat endpoint; persists summary + recent window per session | a chat endpoint |
-| `ovos-memory-plugin-local-rag` | `LocalRAGMemory` | **Fully-local in-process semantic RAG** — embeds every exchange in a local vector DB, retrieves top-k relevant prior turns and injects them per `inject_mode`. No network, no cloud key. | local plugins only |
-| `ovos-memory-plugin-lexical` | `LexicalMemory` | **Keyword recall** over stored exchanges via SQLite FTS5 + BM25. The complement to semantic RAG for exact terms. | nothing (stdlib) |
-| `ovos-memory-plugin-recency` | `RecencyMemory` | Sliding short-term buffer bounded by count and optional age (decay). | nothing (stdlib) |
-| `ovos-memory-plugin-entity` | `EntityMemory` | Extracts **durable user facts** from each exchange (by chaining an LLM prompt) and recalls them every turn. | a chat endpoint |
-| `ovos-memory-plugin-composite` | `CompositeMemory` | **Ensemble orchestrator** — loads several of the above via OPM and consolidates them (hybrid recall via rank fusion). | members' needs |
+By default a chat persona is amnesiac: every turn starts from scratch. A *memory
+plugin* fixes that — it remembers what was said and quietly feeds the relevant
+bits back into the next prompt, so the assistant can follow up, recall facts, and
+stay on topic. This package is a bundle of local-first memory backends plus an
+orchestrator that combines them.
 
-All implement `AgentContextManager` from `ovos-plugin-manager` (merged in [OPM PR #363](https://github.com/OpenVoiceOS/ovos-plugin-manager/pull/363)) and are consumed by `ovos-persona` (see [PR #143](https://github.com/OpenVoiceOS/ovos-persona/pull/143)) via the `memory_module` key in persona JSON.
+"Local-first" means every backend runs on your machine. Some are pure standard
+library (zero extra dependencies); the heavier ones use local models or a *local*
+LLM endpoint — none of them phone home to a cloud service.
 
-The headline is **hybrid, local-first recall**: run `local-rag` (semantics) and `lexical` (keywords) together under `composite`, fused with Reciprocal Rank Fusion, so a private/offline assistant gets robust long-term recall without standing up any server. Add `entity` for durable user facts and `recency` for a cheap short-term window.
+| Backend (`memory_module`) | What it remembers with | Extra setup |
+|---|---|---|
+| [`ovos-memory-plugin-recency`](docs/recency.md) | the last few turns (sliding window) | none |
+| [`ovos-memory-plugin-lexical`](docs/lexical.md) | keyword search over past turns (SQLite FTS5 + BM25) | none |
+| [`ovos-memory-plugin-local-rag`](docs/local-rag.md) | semantic search over past turns (embeddings + vector DB) | local model stack |
+| [`ovos-memory-plugin-longterm`](docs/longterm.md) | a rolling summary of the whole conversation | a local chat endpoint |
+| [`ovos-memory-plugin-entity`](docs/entity.md) | durable facts about the user (name, preferences…) | a local chat endpoint |
+| [`ovos-memory-plugin-composite`](docs/composite.md) | **several of the above at once**, results merged | the members' setup |
 
-The retrieval backends (`local-rag`, `lexical`) and `composite` share a `BaseRetrievalMemory` that provides history, the five `inject_mode` strategies, and the context renderer — a concrete retriever only implements *store* and *query*.
-
-Full docs: [`docs/`](./docs/) (overview + a page per backend). Runnable examples and persona JSON: [`examples/`](./examples/).
+New here? Jump to [Quick start](#quick-start). Building something? See
+[How it works](#how-it-works) and [Write your own backend](#write-your-own-backend).
 
 ---
 
-## Installation
+## Install
 
 ```bash
 pip install ovos-memory-plugins
 
-# fully-local RAG stack (gguf embeddings + chromadb vector store):
+# add the local semantic-RAG stack (embeddings model + vector store):
 pip install 'ovos-memory-plugins[local-rag]'
 ```
 
+`recency` and `lexical` need nothing beyond the base install — they are pure
+Python standard library.
+
 ---
 
-## Plugin 1 — `ovos-memory-plugin-longterm`
+## Quick start
 
-### How it works
+A persona is a small JSON file. The `memory_module` key picks a memory backend;
+a block with the same name configures it. Drop the file in your `ovos-persona`
+personas directory.
 
-```
-  ┌─────────────────────────────────────────────────────────────────┐
-  │  Session store (JSON or SQLite)                                  │
-  │  ┌──────────────────┐    ┌────────────────────────────────────┐  │
-  │  │  rolling_summary │ ←  │  LLM summarize every N exchanges   │  │
-  │  └──────────────────┘    └────────────────────────────────────┘  │
-  │  ┌────────────────────────────────────────────────────────────┐  │
-  │  │  recent_window messages (verbatim)                         │  │
-  │  └────────────────────────────────────────────────────────────┘  │
-  └─────────────────────────────────────────────────────────────────┘
-           │
-           ▼  build_conversation_context(utterance, session_id)
-  [SYSTEM: system_prompt + rolling_summary]
-  [... recent verbatim turns ...]
-  [USER: current utterance]
-```
+### Step 1 — remember the last few turns (no setup)
 
-Every time `update_history` is called the plugin increments an exchange counter (one assistant message = one exchange).  When the counter reaches `summarize_every` it sends the oldest messages to the configured LLM with a rolling-update prompt and stores the result; only `recent_window` exchanges are kept verbatim.
-
-### Configuration
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `api_url` | str | `http://192.168.1.200:8000/v1` | Base URL of the OpenAI-compatible server |
-| `model` | str | auto-detected | Model name for chat completions |
-| `summarize_every` | int | `6` | Exchanges to accumulate before summarizing |
-| `max_summary_tokens` | int | `256` | `max_tokens` for the summarization request |
-| `recent_window` | int | `4` | Exchanges to keep verbatim after each summarization |
-| `backend` | str | `"json"` | `"json"` or `"sqlite"` |
-| `db_path` | str | `~/.local/share/ovos/longterm_memory.{json,db}` | Path to the persistence file |
-| `system_prompt` | str | `""` | Persona system prompt |
-| `request_timeout` | int | `30` | HTTP timeout in seconds |
-
-### Persona wiring example
+The simplest memory: a sliding window of recent turns. No models, no endpoints.
 
 ```json
 {
   "name": "MyAssistant",
-  "handlers": ["ovos-solver-openai-plugin"],
-  "memory_module": "ovos-memory-plugin-longterm",
-  "ovos-memory-plugin-longterm": {
-    "api_url": "http://localhost:8000/v1",
-    "model": "mistral",
-    "summarize_every": 8,
-    "max_summary_tokens": 300,
-    "recent_window": 4,
-    "backend": "sqlite",
-    "db_path": "~/.local/share/ovos/assistant_memory.db",
+  "memory_module": "ovos-memory-plugin-recency",
+  "ovos-memory-plugin-recency": {
+    "max_history": 10,
     "system_prompt": "You are a helpful assistant."
-  },
-  "ovos-solver-openai-plugin": {
-    "api_url": "http://localhost:8000/v1"
   }
 }
 ```
 
----
+The assistant can now handle "and what about tomorrow?" because the previous
+turns are still in context. That is all most short conversations need.
 
-## Plugin 2 — `ovos-memory-plugin-local-rag`
+### Step 2 — recall things said long ago (semantic)
 
-Fully-local, in-process RAG. Loads an OVOS text-embeddings plugin and an
-`EmbeddingsDB` plugin directly (no HTTP), embeds every exchange, and retrieves
-the top-k most relevant prior turns before each response.
-
-### How it works
-
-```
-  update_history(exchange)
-      │
-      ├─ embedder.get_embeddings("Q: ...\nA: ...")   (in-process)
-      └─ db.add_embeddings(key, vector, metadata)     (local vector store)
-
-  build_conversation_context(utterance)
-      │
-      ├─ db.query(embed(query), top_k)  → top-k by cosine distance
-      ├─ filter by min_score (score = 1 - distance)
-      └─ inject per inject_mode + recent history + [USER: utterance]
-```
-
-The default stack is `ovos-gguf-embeddings-plugin` (labse gguf embeddings) +
-`ovos-chromadb-embeddings-plugin` (persistent vector store) — install the
-`local-rag` extra. Any `opm.embeddings.text` + `opm.embeddings` (`EmbeddingsDB`)
-pair works.
-
-### Configuration
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `embeddings_plugin` | str | `ovos-gguf-embeddings-plugin` | `opm.embeddings.text` entry point |
-| `embeddings_config` | dict | `{}` | Config for the embeddings plugin (e.g. `{"model": "labse"}`) |
-| `embeddings_db_plugin` | str | `ovos-chromadb-embeddings-plugin` | `opm.embeddings` (`EmbeddingsDB`) entry point |
-| `embeddings_db_config` | dict | `{}` | Config for the DB (e.g. `{"path": "~/.local/share/ovos/local_rag_db"}`) |
-| `collection` | str | `ovos_local_rag` | Collection / vector-store name |
-| `retrieval.max_num_results` | int | `5` | Max retrieved documents per query |
-| `retrieval.min_score` | float\|null | `null` | Drop hits below this score (`score = 1 - cosine_distance`) |
-| `retrieval.query_mode` | str | `utterance` | `utterance` or `history` (fold recent user turns into the query) |
-| `retrieval.query_history_turns` | int | `3` | Turns folded in when `query_mode="history"` |
-| `context.header` | str | (see source) | Header line above the retrieved context |
-| `context.chunk_prefix` / `chunk_separator` | str | `"- "` / `"\n\n"` | Rendering of each chunk |
-| `context.include_sources` | bool | `false` | Prefix each chunk with its stored id |
-| `context.tool_name` | str | `search_memory` | Tool name used by `inject_mode="tool"` |
-| `inject_mode` | str | `system` | `system` \| `system_prompt` \| `developer` \| `user` \| `tool` |
-| `system_prompt` | str | `""` | Persona system prompt |
-| `max_history` | int | `10` | Recent verbatim messages kept per session |
-
-See [`docs/local-rag.md`](./docs/local-rag.md) for the inject-mode details.
-
-### Persona wiring example (fully offline)
+A window forgets. To recall something from much earlier, search past turns by
+meaning:
 
 ```json
 {
-  "name": "LocalRagBot",
-  "handlers": ["ovos-gguf-chat-plugin"],
+  "name": "MyAssistant",
   "memory_module": "ovos-memory-plugin-local-rag",
   "ovos-memory-plugin-local-rag": {
-    "embeddings_plugin": "ovos-gguf-embeddings-plugin",
-    "embeddings_config": {"model": "labse"},
-    "embeddings_db_plugin": "ovos-chromadb-embeddings-plugin",
-    "embeddings_db_config": {"path": "~/.local/share/ovos/local_rag_db"},
-    "collection": "localragbot",
-    "retrieval": {"max_num_results": 4, "min_score": 0.3},
-    "inject_mode": "system",
-    "system_prompt": "You are a helpful offline assistant."
+    "retrieval": {"max_num_results": 4},
+    "system_prompt": "You are a helpful assistant."
   }
 }
 ```
 
----
+Every exchange is embedded and stored in a local vector database; before each
+reply the most relevant past exchanges are retrieved and added to the prompt.
+Ask "what was that book I mentioned last week?" and it can answer. Needs the
+`[local-rag]` extra.
 
-## Plugin 3 — `ovos-memory-plugin-lexical`
+### Step 3 — combine memories (hero mode)
 
-Keyword/lexical recall via SQLite FTS5 + BM25 — **zero extra dependencies**, fully
-local, persistent. Stores each exchange and recalls by keyword match; the natural
-complement to semantic RAG for exact terms (names, codes, rare words). See
-[`docs/lexical.md`](./docs/lexical.md).
-
-## Plugin 4 — `ovos-memory-plugin-recency`
-
-A sliding short-term buffer bounded by message count and optional age (decay).
-The lightest memory — no LLM, no embeddings, zero deps. Great as a persona's
-plain short-term memory or as the `primary` history member of a composite. See
-[`docs/recency.md`](./docs/recency.md).
-
-## Plugin 5 — `ovos-memory-plugin-entity`
-
-Extracts **durable facts** about the user from each exchange by chaining an
-extraction prompt to a local OpenAI-compatible endpoint, then re-injects them
-every turn — so the assistant remembers *who the user is* across sessions. See
-[`docs/entity.md`](./docs/entity.md).
-
-## Plugin 6 — `ovos-memory-plugin-composite`
-
-The **ensemble orchestrator**. Loads several member memories via OPM and
-consolidates them: retriever members (`local-rag`, `lexical`) are **fused** into
-one ranked list (Reciprocal Rank Fusion by default, which is immune to score-scale
-mismatch between backends), while context members (`longterm`, `entity`,
-`recency`) contribute their system blocks. `update_history` is written through to
-every member. This is how one `memory_module` slot becomes "combine many
-memories" — e.g. hybrid semantic + lexical recall plus durable facts. See
-[`docs/composite.md`](./docs/composite.md).
+Real assistants want more than one kind of memory. The **composite** backend
+loads several members and merges their results, so one `memory_module` gives you
+hybrid recall (meaning *and* keywords) plus durable user facts:
 
 ```json
 {
+  "name": "MyAssistant",
   "memory_module": "ovos-memory-plugin-composite",
   "ovos-memory-plugin-composite": {
     "members": [
       {"module": "ovos-memory-plugin-local-rag", "config": {"collection": "kb"}},
-      {"module": "ovos-memory-plugin-lexical", "config": {"db_path": "~/.local/share/ovos/lex.db"}}
+      {"module": "ovos-memory-plugin-lexical",   "config": {"db_path": "~/.local/share/ovos/lex.db"}},
+      {"module": "ovos-memory-plugin-entity",    "config": {"api_url": "http://localhost:8000/v1"}}
     ],
     "fusion": "rrf",
-    "inject_mode": "system"
+    "system_prompt": "You are a helpful assistant."
   }
 }
 ```
+
+`local-rag` catches paraphrases, `lexical` catches exact terms (names, codes,
+rare words), and `entity` remembers who the user is. Their hits are merged with
+Reciprocal Rank Fusion — see [composite](docs/composite.md).
+
+Prefer to see it run before wiring a persona? The [`examples/`](examples/) folder
+has ready persona files and offline demo scripts:
+
+```bash
+python examples/demo_composite.py     # hybrid recall, fully offline
+```
+
+---
+
+## How it works
+
+A memory backend is an `AgentContextManager`. The persona owns the chat model and
+tools; the memory owns **conversation state and prompt assembly** — it never
+generates the answer itself, it just shapes the messages the model sees. Three
+methods make up the whole contract:
+
+```python
+get_history(session_id) -> list[AgentMessage]
+update_history(new_messages, session_id) -> None
+build_conversation_context(utterance, session_id) -> list[AgentMessage]
+```
+
+The persona calls `build_conversation_context` before each turn (to assemble the
+prompt) and `update_history` after each turn (to record what happened). Two rules
+hold for the returned message list:
+
+- the **first** message MAY be a `system` message (the persona prompt);
+- the **last** message is ALWAYS the current user utterance.
+
+Everything else — summaries, retrieved snippets, known facts, recent turns — goes
+in between. The [overview](docs/overview.md) explains the shared knobs: the five
+`inject_mode` strategies (how recalled context is placed in the prompt) and the
+retrieval settings (`max_num_results`, `min_score`, `query_mode`).
+
+---
+
+## Choosing a backend
+
+| Want… | Use |
+|---|---|
+| just the last few turns | `recency` |
+| exact-term recall (names, IDs, codes) | `lexical` |
+| meaning-based recall of past detail | `local-rag` |
+| robust recall (meaning + keywords) | `composite` of `local-rag` + `lexical` |
+| to remember who the user is across sessions | `entity` |
+| a compact gist of very long chats | `longterm` |
+| more than one of the above | `composite` |
+
+The [overview](docs/overview.md#choosing-a-backend) has a full comparison table
+(persistence, dependencies, offline behaviour, cost per turn).
+
+---
+
+## The composite
+
+`composite` is a pure orchestrator: it loads member backends by name and
+consolidates them.
+
+- **Retriever members** (`local-rag`, `lexical`, or any backend exposing
+  `search()`) have their hits **fused** into one ranked, deduplicated list.
+  Reciprocal Rank Fusion is the default — it ranks by *position*, not raw score,
+  so it combines backends whose scores live on different scales (cosine vs BM25)
+  without one drowning out the other. Other modes: `weighted`, `merge`,
+  `priority`, `interleave`.
+- **Context members** (`longterm`, `entity`, `recency`) contribute their system
+  block (a summary, known facts…).
+- New turns are recorded in **every** member; recent history comes from a chosen
+  `primary` member.
+
+If a member fails to load or errors at runtime, it is skipped and the rest carry
+on. Full details and the config schema: [composite](docs/composite.md).
+
+---
+
+## Write your own backend
+
+Two paths, depending on what you are building:
+
+- **A retrieval backend** (stores documents, recalls them by some search) —
+  subclass `BaseRetrievalMemory` and implement just two hooks, `_store_document`
+  and `_query_backend` (returning `MemoryHit`s). You inherit history handling,
+  the five inject modes, the context renderer, and a `search()` that plugs
+  straight into the composite.
+- **Any other memory** — subclass `AgentContextManager` and implement the three
+  contract methods directly.
+
+Register the class under the `opm.agents.memory` entry-point group and it becomes
+selectable as a `memory_module`. Step-by-step guide with code:
+[write a backend](docs/writing-a-backend.md).
 
 ---
 
 ## Architecture
 
 ```
-ovos-persona (PR #143)
-    └── Persona.__init__
-            └── load_memory_plugin("ovos-memory-plugin-composite")
-                    └── CompositeMemory(config={...})
-                            ├── load_memory_plugin("ovos-memory-plugin-local-rag")  (retriever)
-                            ├── load_memory_plugin("ovos-memory-plugin-lexical")    (retriever)
-                            └── load_memory_plugin("ovos-memory-plugin-entity")     (context)
+ovos-persona
+  └─ memory_module: "ovos-memory-plugin-composite"
+       └─ CompositeMemory
+            ├─ ovos-memory-plugin-local-rag   (retriever — semantic)
+            ├─ ovos-memory-plugin-lexical     (retriever — keyword)
+            └─ ovos-memory-plugin-entity      (context  — user facts)
 
-ovos-plugin-manager (PR #363)
-    └── AgentContextManager
-            ├── get_history(session_id)
-            ├── update_history(messages, session_id)
-            └── build_conversation_context(utterance, session_id) → List[AgentMessage]
+AgentContextManager  (the contract every backend implements)
+  ├─ get_history(session_id)
+  ├─ update_history(messages, session_id)
+  └─ build_conversation_context(utterance, session_id) -> list[AgentMessage]
 ```
 
-Personas call `build_conversation_context` before every LLM request. They call `update_history` after each exchange to keep every plugin's state current.
+Retrieval backends and the composite share a `BaseRetrievalMemory` that provides
+history, the inject-mode strategies, and the context renderer; a concrete
+retriever only implements *store* and *query*. The fusion helpers and the
+`MemoryHit` type live in `ovos_memory_plugins.common`.
 
 ---
 
@@ -240,18 +231,12 @@ Personas call `build_conversation_context` before every LLM request. They call `
 ```bash
 pip install -e ".[test]"
 
-# everything (unit + e2e), no external services — runs 0-skipped
-pytest tests -v
-
-# unit tests only (fast, stub backends)
-pytest tests/test_longterm.py tests/test_local_rag.py -v
-
-# e2e: local RAG against the real gguf + chromadb stack (first run downloads the model)
-pytest tests/test_e2e_local_rag.py -v -s
-
-# e2e: long-term against an in-process FastAPI chat stub (no external LLM)
-pytest tests/test_e2e_longterm.py -v -s
+pytest tests -v                       # everything (unit + end-to-end), no external services
+pytest tests/test_composite.py -v     # just the composite (fast)
 ```
+
+The end-to-end RAG test exercises the real embeddings + vector-store stack; its
+first run downloads the embeddings model into the shared cache, then is fast.
 
 ---
 

@@ -76,20 +76,18 @@ in `inject_mode="tool"` are likewise stable (`"memrag_<session_id>_<n>"`).
 | `retrieval.query_mode` | `utterance` | `history` folds recent user turns into the query |
 | `retrieval.query_history_turns` | `3` | turns folded when `query_mode="history"` |
 | `context.*` | — | rendering of the retrieved chunk block |
-| `inject_mode` | `system` | see the [inject-modes table](./overview.md#inject-modes-local-rag) |
+| `inject_mode` | `system` | see the [inject-modes table](./overview.md#inject-modes-retrieval-backends) |
 | `system_prompt` | `""` | persona base prompt |
 | `max_history` | `10` | recent verbatim messages retained per session |
 
 ## Inject modes
 
-All five modes from the overview are supported. The `tool` mode emits a
-synthetic assistant `tool_calls` turn (a `search_memory` call for the query)
-followed by a `MessageRole.TOOL` message carrying the chunks, just before the
-user utterance — the assistant-with-`tool_calls` turn precedes its `tool` result
-(provider ordering invariant) and the user utterance stays last. It requires a
-brain/contract with tool-call support; until that contract ships in a released
-`ovos-plugin-manager`, CI installs it from the
-`feat/agent-tool-calling` branch via `pre_install_pip`.
+All five modes from the [overview](./overview.md#inject-modes-retrieval-backends)
+are supported. The `tool` mode emits a synthetic assistant `tool_calls` turn (a
+`search_memory` call for the query) followed by a `MessageRole.TOOL` message
+carrying the chunks, just before the user utterance — the assistant-with-`tool_calls`
+turn precedes its `tool` result (provider ordering invariant) and the user
+utterance stays last. It requires a chat backend that understands tool calls.
 
 ## Swapping the stack
 

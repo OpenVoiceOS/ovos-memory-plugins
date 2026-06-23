@@ -119,7 +119,7 @@ class LongTermMemory(AgentContextManager):
     Configuration keys
     ------------------
     api_url : str
-        Base URL of the OpenAI-compatible server (e.g. ``http://192.168.1.200:8000/v1``).
+        Base URL of the OpenAI-compatible server (e.g. ``http://localhost:8000/v1``).
     model : str
         Model name to send in chat/completions requests.
     summarize_every : int  (default: 6)
@@ -144,7 +144,7 @@ class LongTermMemory(AgentContextManager):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
 
-        self.api_url: str = self.config.get("api_url", "http://192.168.1.200:8000/v1")
+        self.api_url: str = self.config.get("api_url", "http://localhost:8000/v1")
         self.model: str = self.config.get("model", "")
         self.summarize_every: int = int(self.config.get("summarize_every", 6))
         self.max_summary_tokens: int = int(self.config.get("max_summary_tokens", 256))

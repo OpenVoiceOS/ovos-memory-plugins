@@ -27,7 +27,7 @@ build_conversation_context(utterance)
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `api_url` | str | `http://192.168.1.200:8000/v1` | OpenAI-compatible chat server |
+| `api_url` | str | `http://localhost:8000/v1` | OpenAI-compatible chat server |
 | `model` | str | auto-detected | model for chat completions |
 | `summarize_every` | int | `6` | exchanges accumulated before summarizing |
 | `max_summary_tokens` | int | `256` | `max_tokens` for the summary request |
