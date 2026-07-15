@@ -45,7 +45,7 @@ from ovos_plugin_manager.templates.agents import (
 from ovos_utils.log import LOG
 
 from ovos_memory_plugins._llm import chat_complete, resolve_model
-from ovos_memory_plugins.longterm import _JsonStore
+from ovos_memory_plugins.persistence import JsonStore
 
 DEFAULT_EXTRACTION_PROMPT = (
     "From the exchange below, extract durable facts about the USER worth "
@@ -98,7 +98,7 @@ class EntityMemory(AgentContextManager):
         backend = self.config.get("backend", "json").lower()
         if backend == "json":
             db_path = self.config.get("db_path", "~/.local/share/ovos/entity_memory.json")
-            self._store: Optional[_JsonStore] = _JsonStore(db_path)
+            self._store: Optional[JsonStore] = JsonStore(db_path)
         else:
             self._store = None
         # session_id → list[str] facts (in-memory cache)
@@ -188,3 +188,15 @@ class EntityMemory(AgentContextManager):
             messages.append(AgentMessage(role=MessageRole.SYSTEM, content=block))
         messages.append(AgentMessage(role=MessageRole.USER, content=utterance.strip()))
         return messages
+
+    # ---------------------------------------------------------------- lifecycle
+    def close(self) -> None:
+        """Release the persistence backend, if any."""
+        if self._store is not None and hasattr(self._store, "close"):
+            self._store.close()
+
+    def __enter__(self) -> "EntityMemory":
+        return self
+
+    def __exit__(self, *_exc) -> None:
+        self.close()

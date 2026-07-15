@@ -145,3 +145,19 @@ class LexicalMemory(BaseRetrievalMemory):
         terms = _WORD_RE.findall(query.lower())
         # quote each term so it is always a literal, never an FTS5 operator/keyword
         return " OR ".join(f'"{t}"' for t in terms)
+
+    # ---------------------------------------------------------------- lifecycle
+    def close(self) -> None:
+        """Close the SQLite connection (idempotent)."""
+        with self._lock:
+            if self._con is not None:
+                try:
+                    self._con.close()
+                finally:
+                    self._con = None
+
+    def __enter__(self) -> "LexicalMemory":
+        return self
+
+    def __exit__(self, *_exc) -> None:
+        self.close()
