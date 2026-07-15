@@ -48,6 +48,16 @@ class LongTermMemory(AgentContextManager):
     Long-term memory plugin that summarizes older conversation turns via an
     OpenAI-compatible chat endpoint and persists the rolling summary.
 
+    .. note::
+        Summarization runs **inline and synchronously** inside
+        :meth:`update_history` (via :meth:`_maybe_summarize`): every
+        ``summarize_every`` exchanges the conversation turn makes a blocking HTTP
+        ``chat/completions`` call to ``api_url`` and waits up to
+        ``request_timeout`` seconds for it. A slow or unreachable LLM server
+        therefore stalls that turn (failures are caught and logged, so it
+        degrades rather than crashes). Point ``api_url`` at a responsive local
+        endpoint and keep ``request_timeout`` modest for latency-sensitive use.
+
     Configuration keys
     ------------------
     api_url : str
