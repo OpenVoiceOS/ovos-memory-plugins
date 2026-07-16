@@ -299,23 +299,24 @@ def test_chat_complete_returns_text(mock_post):
 # ---------------------------------------------------------------------------
 
 def test_json_store_corrupted_file(tmp_path):
-    """load() on a corrupted JSON file returns empty dict."""
+    """load() on a corrupted JSON file returns empty dict and preserves the file."""
     p = tmp_path / "bad.json"
     p.write_text("NOT JSON")
-    store = _JsonStore.__new__(_JsonStore)
-    store.path = p
+    store = _JsonStore(str(p))
     assert store.load("s1") == {}
+    # the corrupt file is preserved rather than silently discarded
+    assert (tmp_path / "bad.json.corrupt").read_text() == "NOT JSON"
 
 
 def test_json_store_save_corrupted_then_recovers(tmp_path):
     """save() when the file is corrupt creates a fresh store."""
     p = tmp_path / "bad.json"
     p.write_text("NOT JSON")
-    store = _JsonStore.__new__(_JsonStore)
-    store.path = p
+    store = _JsonStore(str(p))
     store.save("s1", {"summary": "x", "recent": [], "exchange_count": 0})
     loaded = store.load("s1")
     assert loaded["summary"] == "x"
+    assert (tmp_path / "bad.json.corrupt").exists()
 
 
 # ---------------------------------------------------------------------------

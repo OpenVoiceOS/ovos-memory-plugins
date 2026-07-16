@@ -191,3 +191,20 @@ class CompositeMemory(BaseRetrievalMemory):
         history = self.get_history(session_id)
         return self.assemble_context(utterance, session_id, context, history,
                                      extra_system=extra_system)
+
+    # ---------------------------------------------------------------- lifecycle
+    def close(self) -> None:
+        """Close every member that exposes a ``close()`` lifecycle hook."""
+        for name, inst, _w in self.members:
+            close = getattr(inst, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception as e:
+                    LOG.error(f"CompositeMemory: member {name!r} close failed: {e}")
+
+    def __enter__(self) -> "CompositeMemory":
+        return self
+
+    def __exit__(self, *_exc) -> None:
+        self.close()

@@ -10,16 +10,20 @@ Entry point: ``ovos-memory-plugin-longterm``  (``opm.agents.memory``)
 """
 from __future__ import annotations
 
-import json
-import sqlite3
 import time
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from ovos_plugin_manager.templates.agents import AgentContextManager, AgentMessage, MessageRole
 from ovos_utils.log import LOG
 
 from ovos_memory_plugins._llm import chat_complete, resolve_model
+from ovos_memory_plugins.persistence import JsonStore, SqliteStore
+
+# Backwards-compatible aliases. The stores now live in the shared
+# ``ovos_memory_plugins.persistence`` module so other plugins (e.g. entity) can
+# reuse them without importing this plugin's internals.
+_JsonStore = JsonStore
+_SqliteStore = SqliteStore
 
 
 # ---------------------------------------------------------------------------
@@ -36,78 +40,6 @@ def _messages_to_text(messages: List[AgentMessage]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Persistence backends
-# ---------------------------------------------------------------------------
-
-class _JsonStore:
-    """Simple JSON file store keyed by session_id."""
-
-    def __init__(self, db_path: str):
-        self.path = Path(db_path).expanduser()
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        if not self.path.exists():
-            self.path.write_text("{}")
-
-    def load(self, session_id: str) -> Dict:
-        try:
-            data = json.loads(self.path.read_text())
-            return data.get(session_id, {})
-        except Exception:
-            return {}
-
-    def save(self, session_id: str, record: Dict):
-        try:
-            data = json.loads(self.path.read_text())
-        except Exception:
-            data = {}
-        data[session_id] = record
-        self.path.write_text(json.dumps(data, indent=2))
-
-
-class _SqliteStore:
-    """SQLite store keyed by session_id."""
-
-    def __init__(self, db_path: str):
-        path = Path(db_path).expanduser()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        self.con = sqlite3.connect(str(path), check_same_thread=False)
-        self.con.execute(
-            "CREATE TABLE IF NOT EXISTS sessions "
-            "(session_id TEXT PRIMARY KEY, summary TEXT, recent TEXT, exchange_count INTEGER, updated_at REAL)"
-        )
-        self.con.commit()
-
-    def load(self, session_id: str) -> Dict:
-        cur = self.con.execute(
-            "SELECT summary, recent, exchange_count, updated_at FROM sessions WHERE session_id=?",
-            (session_id,)
-        )
-        row = cur.fetchone()
-        if not row:
-            return {}
-        return {
-            "summary": row[0],
-            "recent": json.loads(row[1]) if row[1] else [],
-            "exchange_count": row[2],
-            "updated_at": row[3],
-        }
-
-    def save(self, session_id: str, record: Dict):
-        self.con.execute(
-            "INSERT OR REPLACE INTO sessions (session_id, summary, recent, exchange_count, updated_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (
-                session_id,
-                record.get("summary", ""),
-                json.dumps(record.get("recent", [])),
-                record.get("exchange_count", 0),
-                record.get("updated_at", time.time()),
-            )
-        )
-        self.con.commit()
-
-
-# ---------------------------------------------------------------------------
 # Plugin
 # ---------------------------------------------------------------------------
 
@@ -115,6 +47,16 @@ class LongTermMemory(AgentContextManager):
     """
     Long-term memory plugin that summarizes older conversation turns via an
     OpenAI-compatible chat endpoint and persists the rolling summary.
+
+    .. note::
+        Summarization runs **inline and synchronously** inside
+        :meth:`update_history` (via :meth:`_maybe_summarize`): every
+        ``summarize_every`` exchanges the conversation turn makes a blocking HTTP
+        ``chat/completions`` call to ``api_url`` and waits up to
+        ``request_timeout`` seconds for it. A slow or unreachable LLM server
+        therefore stalls that turn (failures are caught and logged, so it
+        degrades rather than crashes). Point ``api_url`` at a responsive local
+        endpoint and keep ``request_timeout`` modest for latency-sensitive use.
 
     Configuration keys
     ------------------
@@ -305,3 +247,19 @@ class LongTermMemory(AgentContextManager):
         # Current utterance
         context.append(AgentMessage(role=MessageRole.USER, content=utterance.strip()))
         return context
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    def close(self) -> None:
+        """Release the persistence backend (closes the SQLite connection)."""
+        store = getattr(self, "_store", None)
+        if store is not None and hasattr(store, "close"):
+            store.close()
+
+    def __enter__(self) -> "LongTermMemory":
+        return self
+
+    def __exit__(self, *_exc) -> None:
+        self.close()

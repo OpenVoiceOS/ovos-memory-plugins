@@ -40,7 +40,9 @@ test = [
     "pytest-cov",
     "fastapi",
     "uvicorn",
-    "httpx",
+    # chromadb and starlette's TestClient use the pre-1.0 httpx API
+    # (httpx.Limits et al.), which the 1.0 prereleases remove.
+    "httpx>=0.27,<1",
     "types-requests",
     "mypy",
     # union of everything the test suite imports for real (no skips):
