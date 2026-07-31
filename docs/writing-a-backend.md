@@ -2,7 +2,7 @@
 
 A memory backend is an `AgentContextManager`: an object the persona asks to
 remember turns and to assemble the next prompt. You can write one in a few dozen
-lines. There are two starting points — pick by what you are building.
+lines. There are two starting points. Pick by what you are building.
 
 - **A retrieval backend** (stores items, recalls them by some kind of search):
   start from `BaseRetrievalMemory` and implement two small hooks. You inherit
@@ -24,7 +24,7 @@ rules: the first message MAY be a `system` message, and the last message is
 ALWAYS the current user utterance. `AgentMessage`, `MessageRole`, and `ToolCall`
 come from `ovos_plugin_manager.templates.agents`.
 
-## Path A — a retrieval backend
+## Path A: a retrieval backend
 
 Implement `_store_document` (persist one item) and `_query_backend` (return ranked
 [`MemoryHit`](#the-memoryhit-type)s). Everything else is inherited.
@@ -57,13 +57,13 @@ class SubstringMemory(BaseRetrievalMemory):
 
 That is a complete, usable backend. From the base you get:
 
-- `update_history` — pairs each user→assistant turn into a `"Q: …\nA: …"`
+- `update_history`: pairs each user-to-assistant turn into a `"Q: …\nA: …"`
   document and calls your `_store_document` (errors are caught, so a storage
-  hiccup never breaks the conversation);
-- `search(query, session_id, top_k)` — calls `_query_backend`, then applies the
-  `min_score` filter and `top_k` cap;
-- `build_conversation_context` — runs the search and injects the result per the
-  configured `inject_mode`, with the user utterance last;
+  hiccup never breaks the conversation)
+- `search(query, session_id, top_k)`: calls `_query_backend`, then applies the
+  `min_score` filter and `top_k` cap
+- `build_conversation_context`: runs the search and injects the result per the
+  configured `inject_mode`, with the user utterance last
 - shared config: `retrieval` (`max_num_results`, `min_score`, `query_mode`,
   `query_history_turns`), `context` (chunk rendering), `inject_mode`,
   `system_prompt`, `max_history`. Add your own keys in `__init__` from
@@ -72,7 +72,7 @@ That is a complete, usable backend. From the base you get:
 Because it exposes `search()` returning `MemoryHit`s, it can be a member of the
 composite and be fused with other retrievers for free.
 
-## Path B — any other memory
+## Path B: any other memory
 
 Subclass `AgentContextManager` and implement the three methods.
 
@@ -122,7 +122,7 @@ MemoryHit(content="...", source="doc-42", score=0.87, metadata={"session_id": "s
 ```
 
 `content` is the recalled text, `source` an optional id, `score` the
-retriever-native relevance (any scale — fusion handles scale differences),
+retriever-native relevance (any scale, fusion handles scale differences),
 `metadata` is free-form.
 
 ## Register it
@@ -146,7 +146,7 @@ After installing, select it from a persona:
 
 ## Test it
 
-Backends are plain objects — instantiate, feed turns, assert on the result.
+Backends are plain objects. Instantiate, feed turns, and assert on the result.
 For a Path-A retriever, inject your own storage so tests need no real services
 (the bundled backends accept stub backends through their config for exactly this).
 
@@ -161,3 +161,6 @@ def test_recall():
     assert ctx[-1].role == MessageRole.USER          # contract: user last
     assert any("teal" in m.content for m in ctx)      # it was recalled
 ```
+
+---
+[← Composite](composite.md) · [Home](README.md)

@@ -1,4 +1,4 @@
-# `ovos-memory-plugin-longterm` — rolling summarization
+# `ovos-memory-plugin-longterm`: rolling summarization
 
 `LongTermMemory` keeps a compact running summary of a long conversation. Every
 `summarize_every` exchanges it sends the oldest turns to an OpenAI-compatible
@@ -7,7 +7,7 @@ chat endpoint, replaces them with the returned summary, and keeps only
 persisted per session (JSON or SQLite).
 
 Use it when a **gist** of the conversation is enough and you already have an LLM
-endpoint — it trades exact recall for a bounded, cheap-to-carry context. For
+endpoint. It trades exact recall for a bounded, cheap-to-carry context. For
 exact recall of specific facts, prefer [local-rag](./local-rag.md).
 
 ## How it works
@@ -55,3 +55,6 @@ build_conversation_context(utterance)
   }
 }
 ```
+
+---
+[Home](README.md) · [Local RAG →](local-rag.md)
