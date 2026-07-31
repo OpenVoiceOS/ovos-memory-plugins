@@ -7,15 +7,15 @@
 
 **Give your [OpenVoiceOS](https://openvoiceos.org) persona a memory.**
 
-By default a chat persona is amnesiac: every turn starts from scratch. A *memory
-plugin* fixes that — it remembers what was said and quietly feeds the relevant
-bits back into the next prompt, so the assistant can follow up, recall facts, and
-stay on topic. This package is a bundle of local-first memory backends plus an
+By default, a chat persona is amnesiac. Every turn starts from scratch. A *memory
+plugin* fixes that. It remembers what was said and feeds the relevant parts back
+into the next prompt, so the assistant can follow up, recall facts, and stay on
+topic. This package is a bundle of local-first memory backends plus an
 orchestrator that combines them.
 
 "Local-first" means every backend runs on your machine. Some are pure standard
-library (zero extra dependencies); the heavier ones use local models or a *local*
-LLM endpoint — none of them phone home to a cloud service.
+library, with zero extra dependencies. The heavier ones use local models or a
+*local* LLM endpoint. None of them send data to a cloud service.
 
 | Backend (`memory_module`) | What it remembers with | Extra setup |
 |---|---|---|
@@ -40,18 +40,18 @@ pip install ovos-memory-plugins
 pip install 'ovos-memory-plugins[local-rag]'
 ```
 
-`recency` and `lexical` need nothing beyond the base install — they are pure
+`recency` and `lexical` need nothing beyond the base install. They are pure
 Python standard library.
 
 ---
 
 ## Quick start
 
-A persona is a small JSON file. The `memory_module` key picks a memory backend;
-a block with the same name configures it. Drop the file in your `ovos-persona`
+A persona is a small JSON file. The `memory_module` key picks a memory backend.
+A block with the same name configures it. Drop the file in your `ovos-persona`
 personas directory.
 
-### Step 1 — remember the last few turns (no setup)
+### Step 1: remember the last few turns (no setup)
 
 The simplest memory: a sliding window of recent turns. No models, no endpoints.
 
@@ -69,7 +69,7 @@ The simplest memory: a sliding window of recent turns. No models, no endpoints.
 The assistant can now handle "and what about tomorrow?" because the previous
 turns are still in context. That is all most short conversations need.
 
-### Step 2 — recall things said long ago (semantic)
+### Step 2: recall things said long ago (semantic)
 
 A window forgets. To recall something from much earlier, search past turns by
 meaning:
@@ -85,12 +85,12 @@ meaning:
 }
 ```
 
-Every exchange is embedded and stored in a local vector database; before each
-reply the most relevant past exchanges are retrieved and added to the prompt.
+Every exchange is embedded and stored in a local vector database. Before each
+reply, the most relevant past exchanges are retrieved and added to the prompt.
 Ask "what was that book I mentioned last week?" and it can answer. Needs the
 `[local-rag]` extra.
 
-### Step 3 — combine memories (hero mode)
+### Step 3: combine memories
 
 Real assistants want more than one kind of memory. The **composite** backend
 loads several members and merges their results, so one `memory_module` gives you
@@ -114,7 +114,7 @@ hybrid recall (meaning *and* keywords) plus durable user facts:
 
 `local-rag` catches paraphrases, `lexical` catches exact terms (names, codes,
 rare words), and `entity` remembers who the user is. Their hits are merged with
-Reciprocal Rank Fusion — see [composite](docs/composite.md).
+Reciprocal Rank Fusion. See [composite](docs/composite.md).
 
 Prefer to see it run before wiring a persona? The [`examples/`](examples/) folder
 has ready persona files and offline demo scripts:
@@ -128,8 +128,8 @@ python examples/demo_composite.py     # hybrid recall, fully offline
 ## How it works
 
 A memory backend is an `AgentContextManager`. The persona owns the chat model and
-tools; the memory owns **conversation state and prompt assembly** — it never
-generates the answer itself, it just shapes the messages the model sees. Three
+tools. The memory owns **conversation state and prompt assembly**. It never
+generates the answer itself, it only shapes the messages the model sees. Three
 methods make up the whole contract:
 
 ```python
@@ -142,11 +142,11 @@ The persona calls `build_conversation_context` before each turn (to assemble the
 prompt) and `update_history` after each turn (to record what happened). Two rules
 hold for the returned message list:
 
-- the **first** message MAY be a `system` message (the persona prompt);
-- the **last** message is ALWAYS the current user utterance.
+- the **first** message MAY be a `system` message (the persona prompt)
+- the **last** message is ALWAYS the current user utterance
 
-Everything else — summaries, retrieved snippets, known facts, recent turns — goes
-in between. The [overview](docs/overview.md) explains the shared knobs: the five
+Everything else goes in between: summaries, retrieved snippets, known facts, and
+recent turns. The [overview](docs/overview.md) explains the shared knobs: the five
 `inject_mode` strategies (how recalled context is placed in the prompt) and the
 retrieval settings (`max_num_results`, `min_score`, `query_mode`).
 
@@ -159,7 +159,7 @@ retrieval settings (`max_num_results`, `min_score`, `query_mode`).
 | just the last few turns | `recency` |
 | exact-term recall (names, IDs, codes) | `lexical` |
 | meaning-based recall of past detail | `local-rag` |
-| robust recall (meaning + keywords) | `composite` of `local-rag` + `lexical` |
+| combined recall (meaning + keywords) | `composite` of `local-rag` + `lexical` |
 | to remember who the user is across sessions | `entity` |
 | a compact gist of very long chats | `longterm` |
 | more than one of the above | `composite` |
@@ -176,13 +176,13 @@ consolidates them.
 
 - **Retriever members** (`local-rag`, `lexical`, or any backend exposing
   `search()`) have their hits **fused** into one ranked, deduplicated list.
-  Reciprocal Rank Fusion is the default — it ranks by *position*, not raw score,
+  Reciprocal Rank Fusion is the default. It ranks by *position*, not raw score,
   so it combines backends whose scores live on different scales (cosine vs BM25)
   without one drowning out the other. Other modes: `weighted`, `merge`,
   `priority`, `interleave`.
 - **Context members** (`longterm`, `entity`, `recency`) contribute their system
-  block (a summary, known facts…).
-- New turns are recorded in **every** member; recent history comes from a chosen
+  block (a summary, known facts, and so on).
+- New turns are recorded in **every** member. Recent history comes from a chosen
   `primary` member.
 
 If a member fails to load or errors at runtime, it is skipped and the rest carry
@@ -194,12 +194,12 @@ on. Full details and the config schema: [composite](docs/composite.md).
 
 Two paths, depending on what you are building:
 
-- **A retrieval backend** (stores documents, recalls them by some search) —
+- **A retrieval backend** (stores documents, recalls them by some search):
   subclass `BaseRetrievalMemory` and implement just two hooks, `_store_document`
   and `_query_backend` (returning `MemoryHit`s). You inherit history handling,
   the five inject modes, the context renderer, and a `search()` that plugs
   straight into the composite.
-- **Any other memory** — subclass `AgentContextManager` and implement the three
+- **Any other memory**: subclass `AgentContextManager` and implement the three
   contract methods directly.
 
 Register the class under the `opm.agents.memory` entry-point group and it becomes
@@ -214,9 +214,9 @@ selectable as a `memory_module`. Step-by-step guide with code:
 ovos-persona
   └─ memory_module: "ovos-memory-plugin-composite"
        └─ CompositeMemory
-            ├─ ovos-memory-plugin-local-rag   (retriever — semantic)
-            ├─ ovos-memory-plugin-lexical     (retriever — keyword)
-            └─ ovos-memory-plugin-entity      (context  — user facts)
+            ├─ ovos-memory-plugin-local-rag   (retriever, semantic)
+            ├─ ovos-memory-plugin-lexical     (retriever, keyword)
+            └─ ovos-memory-plugin-entity      (context, user facts)
 
 AgentContextManager  (the contract every backend implements)
   ├─ get_history(session_id)
@@ -225,7 +225,7 @@ AgentContextManager  (the contract every backend implements)
 ```
 
 Retrieval backends and the composite share a `BaseRetrievalMemory` that provides
-history, the inject-mode strategies, and the context renderer; a concrete
+history, the inject-mode strategies, and the context renderer. A concrete
 retriever only implements *store* and *query*. The fusion helpers and the
 `MemoryHit` type live in `ovos_memory_plugins.common`.
 
@@ -240,14 +240,14 @@ pytest tests -v                       # everything (unit + end-to-end), no exter
 pytest tests/test_composite.py -v     # just the composite (fast)
 ```
 
-The end-to-end RAG test exercises the real embeddings + vector-store stack; its
+The end-to-end RAG test exercises the real embeddings + vector-store stack. Its
 first run downloads the embeddings model into the shared cache, then is fast.
 
 ---
 
 ## License
 
-Apache License 2.0 — see [LICENSE](./LICENSE).
+Apache License 2.0. See [LICENSE](./LICENSE).
 
 ## Credits
 

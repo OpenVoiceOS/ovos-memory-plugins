@@ -1,4 +1,4 @@
-# `ovos-memory-plugin-lexical` — keyword recall (SQLite FTS5)
+# `ovos-memory-plugin-lexical`: keyword recall (SQLite FTS5)
 
 `LexicalMemory` recalls prior exchanges by **keyword** match using SQLite's
 built-in FTS5 full-text index and its `bm25()` ranking. It needs **no extra
@@ -24,8 +24,8 @@ these words".
 
 ## Why pair it with semantics
 
-Keyword recall catches **exact terms** dense embeddings blur — names, codes, IDs,
-rare words — while semantic RAG catches paraphrases keywords miss. Combining the
+Keyword recall catches **exact terms** dense embeddings blur: names, codes, IDs,
+and rare words. Semantic RAG catches paraphrases keywords miss. Combining the
 two through the [composite](./composite.md) (hybrid search) beats either alone.
 
 ## Configuration
@@ -37,7 +37,7 @@ two through the [composite](./composite.md) (hybrid search) beats either alone.
 | `retrieval.max_num_results` | `5` | Max documents per query. |
 | `retrieval.min_score` | `null` | Drop hits below this BM25-derived score (see note). |
 | `retrieval.query_mode` / `query_history_turns` | `utterance` / `3` | Fold recent user turns into the query. |
-| `context.*` | — | Chunk rendering (shared with the other retrievers). |
+| `context.*` | n/a | Chunk rendering (shared with the other retrievers). |
 | `inject_mode` | `system` | `system` \| `developer` \| `system_prompt` \| `user` \| `tool`. |
 | `system_prompt` | `""` | Persona system prompt. |
 | `max_history` | `10` | Recent verbatim messages kept per session. |
@@ -48,3 +48,6 @@ two through the [composite](./composite.md) (hybrid search) beats either alone.
 
 Shared `retrieval` / `context` / `inject_mode` semantics are documented in the
 [overview](./overview.md).
+
+---
+[← Local RAG](local-rag.md) · [Home](README.md) · [Recency →](recency.md)

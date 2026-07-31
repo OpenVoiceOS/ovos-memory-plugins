@@ -1,8 +1,8 @@
-# `ovos-memory-plugin-local-rag` — fully-local in-process RAG
+# `ovos-memory-plugin-local-rag`: fully local, in-process RAG
 
 `LocalRAGMemory` runs Retrieval-Augmented Generation entirely in-process. It
-loads an OVOS text-embeddings plugin and an `EmbeddingsDB` plugin directly — no
-HTTP, no cloud key — so a private/offline assistant gets long-term semantic
+loads an OVOS text-embeddings plugin and an `EmbeddingsDB` plugin directly. No
+HTTP, no cloud key. A private, offline assistant gets long-term semantic
 recall with nothing else running.
 
 ```bash
@@ -27,7 +27,7 @@ build_conversation_context(utterance)
 ```
 
 Document ids are stable and deterministic (`"<session_id>_<n>"`, monotonic per
-session) — no randomness, so storage and tests are reproducible. Tool-call ids
+session). There is no randomness, so storage and tests are reproducible. Tool-call ids
 in `inject_mode="tool"` are likewise stable (`"memrag_<session_id>_<n>"`).
 
 ## Configuration
@@ -69,13 +69,13 @@ in `inject_mode="tool"` are likewise stable (`"memrag_<session_id>_<n>"`).
 | `embeddings_plugin` | `ovos-gguf-embeddings-plugin` | any `opm.embeddings.text` entry point |
 | `embeddings_config` | `{}` | forwarded to the embeddings plugin constructor |
 | `embeddings_db_plugin` | `ovos-chromadb-embeddings-plugin` | any `opm.embeddings` (`EmbeddingsDB`) entry point |
-| `embeddings_db_config` | `{}` | forwarded to the DB constructor; chromadb takes `path`, qdrant/base take `config` |
+| `embeddings_db_config` | `{}` | forwarded to the DB constructor. chromadb takes `path`, qdrant/base take `config` |
 | `collection` | `ovos_local_rag` | collection name (chromadb requires 3-512 chars from `[a-zA-Z0-9._-]`) |
 | `retrieval.max_num_results` | `5` | top-k |
-| `retrieval.min_score` | `null` | drop hits below this score; `null` keeps all |
+| `retrieval.min_score` | `null` | drop hits below this score. `null` keeps all |
 | `retrieval.query_mode` | `utterance` | `history` folds recent user turns into the query |
 | `retrieval.query_history_turns` | `3` | turns folded when `query_mode="history"` |
-| `context.*` | — | rendering of the retrieved chunk block |
+| `context.*` | n/a | rendering of the retrieved chunk block |
 | `inject_mode` | `system` | see the [inject-modes table](./overview.md#inject-modes-retrieval-backends) |
 | `system_prompt` | `""` | persona base prompt |
 | `max_history` | `10` | recent verbatim messages retained per session |
@@ -85,7 +85,7 @@ in `inject_mode="tool"` are likewise stable (`"memrag_<session_id>_<n>"`).
 All five modes from the [overview](./overview.md#inject-modes-retrieval-backends)
 are supported. The `tool` mode emits a synthetic assistant `tool_calls` turn (a
 `search_memory` call for the query) followed by a `MessageRole.TOOL` message
-carrying the chunks, just before the user utterance — the assistant-with-`tool_calls`
+carrying the chunks, just before the user utterance. The assistant-with-`tool_calls`
 turn precedes its `tool` result (provider ordering invariant) and the user
 utterance stays last. It requires a chat backend that understands tool calls.
 
@@ -102,3 +102,6 @@ retrieval/inject logic is backend-agnostic.
 space used by the default chromadb stack, the plugin converts it to a similarity
 `score = 1 - distance` before applying `min_score`, so `min_score` is a
 similarity threshold in `[0, 1]` (higher = stricter).
+
+---
+[← Long-term](longterm.md) · [Home](README.md) · [Lexical →](lexical.md)

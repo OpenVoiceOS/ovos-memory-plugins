@@ -1,9 +1,9 @@
-# `ovos-memory-plugin-composite` — ensemble memory
+# `ovos-memory-plugin-composite`: ensemble memory
 
 `CompositeMemory` is a **pure orchestrator**: it loads several member memory
 plugins by name (via `ovos-plugin-manager`) and consolidates them, so a persona's
 single `memory_module` slot can combine many memories. It stores and retrieves
-nothing itself — every contribution comes from a member.
+nothing itself. Every contribution comes from a member.
 
 ```
                        ┌──────────────────────────────────────────┐
@@ -21,13 +21,13 @@ nothing itself — every contribution comes from a member.
   `local-rag`, `lexical`) have their hits **fused** into one ranked, deduplicated
   list, rendered once and injected per the composite's own `inject_mode`.
 - **Plain members** (`longterm`, `entity`, `recency`, …) contribute their leading
-  `system`/`developer` block(s) — a rolling summary, known facts, etc. Their own
+  `system`/`developer` block(s): a rolling summary, known facts, and so on. Their own
   history and user turn are ignored (the composite owns those).
 - **History** comes from the designated `primary` member (default: the first).
 - **`update_history` is written through to every member**, so each advances its
   own state.
 
-Members that fail to load, or raise at runtime, are skipped — the composite keeps
+Members that fail to load, or raise at runtime, are skipped. The composite keeps
 working with whatever remains. With zero members it is a harmless passthrough.
 
 ## Configuration
@@ -75,7 +75,7 @@ working with whatever remains. With zero members it is a harmless passthrough.
 |---|---|---|
 | `rrf` (default) | `score(d) = Σ weight · 1/(k + rank)` | **Rank-based**, so immune to score-scale mismatch between members. The right default for hybrid recall. |
 | `weighted` | weighted sum of per-list min-max-normalized scores | Assumes per-list scores are meaningful. |
-| `merge` | union, dedup keeping the max score | Simplest; scores across members aren't strictly comparable. |
+| `merge` | union, dedup keeping the max score | Simplest. Scores across members are not strictly comparable. |
 | `priority` | first member (in order) with any hits wins | Fallback chain (e.g. prefer semantic, fall back to lexical). |
 | `interleave` | round-robin rank-0 of each, then rank-1, … | Rank-based and scale-free, but coarser than RRF. |
 
@@ -91,5 +91,8 @@ standard hybrid-search fusion and needs just one parameter (`k`).
 
 See [`../examples/persona_composite.json`](../examples/persona_composite.json) and
 [`../examples/demo_composite.py`](../examples/demo_composite.py), which fuses
-`local-rag` (semantics) with `lexical` (keywords) under RRF — surfacing exchanges
+`local-rag` (semantics) with `lexical` (keywords) under RRF, surfacing exchanges
 that neither backend ranks first on its own.
+
+---
+[← Entity](entity.md) · [Home](README.md) · [Writing a backend →](writing-a-backend.md)
