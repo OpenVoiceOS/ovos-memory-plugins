@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1a2](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.1.1a2) (2026-07-31)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.1.1a1...1.1.1a2)
+
+**Merged pull requests:**
+
+- docs: rewrite README in Simplified Technical English [\#12](https://github.com/OpenVoiceOS/ovos-memory-plugins/pull/12) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [1.1.1a1](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.1.1a1) (2026-07-16)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.1.0a1...1.1.1a1)
