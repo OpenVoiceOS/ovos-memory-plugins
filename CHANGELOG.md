@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0a2](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.2.0a2) (2026-09-10)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.2.0a1...1.2.0a2)
+
+**Merged pull requests:**
+
+- test: drive every registered memory backend through the AgentContextManager contract [\#13](https://github.com/OpenVoiceOS/ovos-memory-plugins/pull/13) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [1.2.0a1](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.2.0a1) (2026-09-10)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.1.1a2...1.2.0a1)
