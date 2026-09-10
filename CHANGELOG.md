@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0a1](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.2.0a1) (2026-09-10)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.1.1a2...1.2.0a1)
+
+**Merged pull requests:**
+
+- feat: recall scope on the retrieval backends [\#14](https://github.com/OpenVoiceOS/ovos-memory-plugins/pull/14) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [1.1.1a2](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.1.1a2) (2026-07-31)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.1.1a1...1.1.1a2)
