@@ -111,7 +111,11 @@ class CompositeMemory(BaseRetrievalMemory):
                 cls = load_memory_plugin(name)
                 if cls is None:
                     raise ValueError("plugin not found")
-                inst = cls(config=(spec.get("config") if isinstance(spec, dict) else None) or {})
+                member_cfg = dict((spec.get("config") if isinstance(spec, dict) else None) or {})
+                # the composite's scope reaches every member that sets none of its own
+                if "scope" in self.config:
+                    member_cfg.setdefault("scope", self.config["scope"])
+                inst = cls(config=member_cfg)
                 weight = float(spec.get("weight", 1.0)) if isinstance(spec, dict) else 1.0
                 members.append((name, inst, weight))
                 LOG.debug(f"CompositeMemory: loaded member {name!r} (weight={weight})")
