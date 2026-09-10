@@ -45,6 +45,7 @@ DEFAULT_SYSTEM_PROMPT_TEMPLATE = "{system}\n\n{header}\n\nContext:\n{context}"
 # {header}, {context} and {utterance} for inject_mode="user"
 DEFAULT_USER_TEMPLATE = "{header}\n\nContext:\n{context}\n\nQuestion: {utterance}"
 
+_VALID_SCOPES = {"global", "session"}
 _VALID_MODES = {"system", "developer", "system_prompt", "user", "tool"}
 
 
@@ -95,6 +96,13 @@ class BaseRetrievalMemory(AgentContextManager, abc.ABC):
         if self.inject_mode not in _VALID_MODES:
             raise ValueError(f"inject_mode must be one of {sorted(_VALID_MODES)}, "
                              f"got {self.inject_mode!r}")
+
+        # "global" recalls documents from every session, the right default on a
+        # device with one user; "session" recalls only the caller's own, the
+        # right default on a server answering several callers.
+        self.scope: str = self.config.get("scope", "global")
+        if self.scope not in _VALID_SCOPES:
+            raise ValueError(f"scope must be one of {sorted(_VALID_SCOPES)}, got {self.scope!r}")
 
         self.session2history: Dict[str, List[AgentMessage]] = {}
         # monotonic per-session counters → stable, deterministic ids
@@ -175,11 +183,16 @@ class BaseRetrievalMemory(AgentContextManager, abc.ABC):
         empty list (the turn proceeds without recalled context).
         """
         k = top_k if top_k is not None else self.max_num_results
+        session_only = self.scope == "session" and session_id is not None
         try:
-            hits = self._query_backend(query, k)
+            # under session scope the backend ranks every session, so ask for
+            # more and keep the caller's share
+            hits = self._query_backend(query, k * 4 if session_only else k)
         except Exception as e:
             LOG.error(f"{type(self).__name__}: search failed ({e}); proceeding without context")
             return []
+        if session_only:
+            hits = [h for h in hits if h.metadata.get("session_id") == session_id]
         if self.min_score is not None:
             hits = [h for h in hits if h.score >= self.min_score]
         return hits[:k]

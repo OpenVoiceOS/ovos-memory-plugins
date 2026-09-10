@@ -150,6 +150,12 @@ recent turns. The [overview](docs/overview.md) explains the shared knobs: the fi
 `inject_mode` strategies (how recalled context is placed in the prompt) and the
 retrieval settings (`max_num_results`, `min_score`, `query_mode`).
 
+The retrieval backends (`lexical`, `local-rag`, a `composite` of them) also take a
+`scope`: `global` recalls documents from every session, the default and the right
+choice on a device with one user; `session` recalls only documents written under
+the session id of the caller asking, the right choice on a server answering several
+callers. A `scope` on the composite reaches every member that sets none of its own.
+
 ---
 
 ## Choosing a backend

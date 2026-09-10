@@ -129,11 +129,12 @@ class LexicalMemory(BaseRetrievalMemory):
         # positive "higher = better" score.
         with self._lock:
             rows = self.con.execute(
-                f"SELECT doc_id, content, bm25({self.table}) AS rank "
+                f"SELECT doc_id, session_id, content, bm25({self.table}) AS rank "
                 f"FROM {self.table} WHERE {self.table} MATCH ? ORDER BY rank LIMIT ?",
                 (match, top_k)).fetchall()
-        return [MemoryHit(content=content, source=doc_id, score=-float(rank))
-                for doc_id, content, rank in rows]
+        return [MemoryHit(content=content, source=doc_id, score=-float(rank),
+                          metadata={"session_id": session_id})
+                for doc_id, session_id, content, rank in rows]
 
     @staticmethod
     def _build_match(query: str) -> str:
