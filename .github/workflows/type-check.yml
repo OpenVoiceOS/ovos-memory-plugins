@@ -7,10 +7,11 @@ on:
 
 jobs:
   type_check:
-    uses: OpenVoiceOS/gh-automations/.github/workflows/type-check.yml@dev
+    uses: OpenVoiceOS/gh-automations/.github/workflows/type-check.yml@fix/checks-must-name-what-they-checked
     secrets: inherit
     with:
       python_version: "3.11"
       mypy_args: "ovos_memory_plugins"
       test_extras: "test"
       pr_comment: true
+      gh_automations_ref: "fix/checks-must-name-what-they-checked"
