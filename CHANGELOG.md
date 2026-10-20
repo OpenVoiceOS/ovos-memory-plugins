@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1a1](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.2.1a1) (2026-10-20)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.2.0a4...1.2.1a1)
+
+**Merged pull requests:**
+
+- fix: parse entity facts from a JSON array so prose replies are not stored [\#16](https://github.com/OpenVoiceOS/ovos-memory-plugins/pull/16) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [1.2.0a4](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.2.0a4) (2026-10-20)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.2.0a3...1.2.0a4)
