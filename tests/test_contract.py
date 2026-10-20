@@ -67,7 +67,7 @@ def _config(name, tmp_path):
 def backend(request, tmp_path):
     name = request.param
     cls = _entry_points()[name].load()
-    with patch("ovos_memory_plugins.entity.chat_complete", return_value="NONE"), \
+    with patch("ovos_memory_plugins.entity.chat_complete", return_value="[]"), \
             patch("ovos_memory_plugins.longterm.chat_complete", return_value="summary"):
         plugin = cls(config=_config(name, tmp_path))
         assert isinstance(plugin, AgentContextManager), name

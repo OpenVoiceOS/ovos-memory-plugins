@@ -7,7 +7,7 @@ facts no matter how long ago they were said. Unlike RAG, it needs no embeddings
 or vector store.
 
 It is "clever by chaining a prompt": after each exchange it asks a **local**
-OpenAI-compatible endpoint to extract short fact lines, then merges them
+OpenAI-compatible endpoint to extract short facts as a JSON array, then merges them
 (deduplicated) into a per-session fact store. Local-first, the same kind of endpoint
 [`longterm`](./longterm.md) uses, never a hosted provider. If the endpoint is
 unreachable, extraction simply no-ops and the turn proceeds.
@@ -16,8 +16,8 @@ unreachable, extraction simply no-ops and the turn proceeds.
 
 ```
   update_history(exchange)
-      └─ LLM: "extract durable facts about the USER … else NONE"
-              → parse "- fact" lines → dedup/merge into the fact store
+      └─ LLM: "extract durable facts about the USER … as a JSON array, [] if none"
+              → parse the JSON array → dedup/merge into the fact store
 
   build_conversation_context(utterance)
       → [system?] + [SYSTEM: "Known facts about the user: …"] + [USER: utterance]
@@ -34,7 +34,7 @@ unreachable, extraction simply no-ops and the turn proceeds.
 | `request_timeout` | `30` | HTTP timeout (seconds). |
 | `backend` | `json` | `json` (persisted) or `memory` (ephemeral). |
 | `db_path` | `~/.local/share/ovos/entity_memory.json` | JSON store path. |
-| `extraction_prompt` | (built-in) | Override the extraction template (must contain `{exchange}`). |
+| `extraction_prompt` | (built-in) | Override the extraction template (must contain `{exchange}`). The model must reply with a JSON array of strings; a reply without one stores nothing. |
 | `facts_header` | `Known facts about the user:` | Heading for the injected block. |
 | `system_prompt` | `""` | Persona system prompt. |
 

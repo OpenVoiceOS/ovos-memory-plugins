@@ -78,9 +78,7 @@ The facts file survives the restart. Output of the run:
 {
   "alice": {
     "facts": [
-      "Lisbon",
-      "Pixel (cat)",
-      "These are the only two durable facts that can be extracted from the conversation, as they represent the user's location and a specific piece of personal information (a pet). The Assistant's statement about being unable to provide information about Pixel's behavior is an instruction or limitation, rather than a fact worth remembering."
+      "My cat is called Pixel"
     ]
   }
 }
@@ -101,17 +99,18 @@ for user in ("alice", "bob"):
 Output:
 
 ```
-alice [('system', "Known facts about the user:\n- Lisbon\n- Pixel (cat)\n- These are the only two durable facts that can be extracted from the conversation, as they represent the user's location and a specific piece of personal information (a pet). The Assistant's statement about being unable to provide information about Pixel's behavior is an instruction or limitation, rather than a fact worth remembering."), ('user', 'What is my cat called?')]
+alice [('system', 'Known facts about the user:\n- My cat is called Pixel'), ('user', 'What is my cat called?')]
 bob [('user', 'What is my cat called?')]
 ```
 
 Alice's facts reach the model, and Bob's prompt holds nothing of Alice. The
 quality of the facts and of the answer depends on the chat model. In this run
-`qwen2.5:7b` stored `Pixel (cat)` and also stored a sentence that explains its
-own choices as a third fact. After the restart, it answered a question about
-the cat with `Your cat is named Pixel. I don't have information on its
-behavior.` A different model, or a custom `extraction_prompt`, changes which
-facts are kept.
+`qwen2.5:7b` stored `My cat is called Pixel` and missed the city. After the
+restart, it answered a question about the cat with `Your cat's name is Pixel,
+according to our previous knowledge.` The entity backend stores only the facts
+in a JSON array, so a reply that holds none stores nothing. A different model,
+or a custom `extraction_prompt`, changes which facts are kept. A custom prompt
+must ask for a JSON array of strings.
 
 | Problem | Cause | Fix |
 |---|---|---|
