@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0a3](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.2.0a3) (2026-10-20)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.2.0a2...1.2.0a3)
+
+**Merged pull requests:**
+
+- docs: persona memory setups, recall scope and the chat-engine setting [\#15](https://github.com/OpenVoiceOS/ovos-memory-plugins/pull/15) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [1.2.0a2](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.2.0a2) (2026-09-10)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.2.0a1...1.2.0a2)
