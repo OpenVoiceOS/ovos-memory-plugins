@@ -58,11 +58,13 @@ Every persona also needs a chat engine in `handlers`. The examples use
 `ovos-chat-openai-plugin` with a local OpenAI-compatible server at
 `http://localhost:8080/v1`. Change `api_url` to your server.
 
-Set `allow_system_prompts` to `true`. The memory backends add recalled context to
-the prompt as a system message. Without this setting, `ovos-chat-openai-plugin`
-removes every system message before the request, and logs the warning `dropped 1
-system message(s) before the request: 'allow_system_prompts' is off`. The
-persona then answers without its memory.
+Set `allow_system_prompts` to `true`. The `entity` and `longterm` backends add
+recalled context to the prompt as a system message. The retrieval backends do the
+same in the default `inject_mode`. The `recency` backend sends a system message
+only when you set its `system_prompt`. Without this setting,
+`ovos-chat-openai-plugin` removes every system message before the request, and logs
+the warning `dropped 1 system message(s) before the request: 'allow_system_prompts'
+is off`. The persona then answers without its memory.
 
 ### Step 1: remember the last few turns (no setup)
 
@@ -215,7 +217,8 @@ consolidates them.
   without one drowning out the other. Other modes: `weighted`, `merge`,
   `priority`, `interleave`.
 - **Context members** (`longterm`, `entity`, `recency`) contribute their system
-  block (a summary, known facts, and so on).
+  block (a summary, known facts, and so on). `recency` contributes one only when
+  its `system_prompt` is set.
 - New turns are recorded in **every** member. Recent history comes from a chosen
   `primary` member.
 

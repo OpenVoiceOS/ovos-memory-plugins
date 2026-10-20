@@ -11,7 +11,7 @@ nothing itself. Every contribution comes from a member.
  context(utterance) ──▶│  retrievers ─ search() ─┐                │
                        │  (local-rag, lexical)   ├─▶ fuse (RRF) ──┼─▶ one context block
                        │  plain members ─────────┘                │   + folded summaries/facts
-                       │  (longterm, entity, recency: system block)│   + primary history
+                       │  (longterm, entity; recency if prompt set)│   + primary history
                        └──────────────────────────────────────────┘   + [USER utterance]
 ```
 

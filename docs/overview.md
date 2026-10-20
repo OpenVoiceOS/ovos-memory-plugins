@@ -69,17 +69,22 @@ documents that several users share, keep the documents in an
 
 ## Use with a chat engine
 
-A persona sends the context a memory backend builds to its chat engine. Recalled
-context, summaries and facts arrive as a `system` message in the default
-`inject_mode`. `ovos-chat-openai-plugin` removes every system message unless its
-config sets `allow_system_prompts` to `true`, and logs:
+A persona sends the context a memory backend builds to its chat engine. Summaries
+and facts always arrive as a `system` message. Recalled passages arrive as a
+`system` message in the default `inject_mode`. `ovos-chat-openai-plugin` removes
+every system message unless its config sets `allow_system_prompts` to `true`, and logs:
 
 ```
 dropped 1 system message(s) before the request: 'allow_system_prompts' is off.
 ```
 
 The persona then answers without its memory. Set `allow_system_prompts` to
-`true`, or set the backend's `inject_mode` to `user`.
+`true`. For the retrieval backends `lexical`, `local-rag` and `composite`, you
+can instead set `inject_mode` to `user`. For a `composite`, set it on the
+composite, not on a member. A `system_prompt` in the memory config always goes out
+as a `system` message. To keep it, move it to the `system_prompt` of the chat
+engine. `entity` and `longterm` always need
+`allow_system_prompts`, and so does a `composite` that includes them.
 
 ## Choosing a backend
 
