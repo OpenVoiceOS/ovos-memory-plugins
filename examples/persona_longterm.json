@@ -1,0 +1,20 @@
+{
+  "name": "MyAssistant",
+  "handlers": [
+    "ovos-chat-openai-plugin"
+  ],
+  "ovos-chat-openai-plugin": {
+    "api_url": "http://localhost:8000/v1",
+    "allow_system_prompts": true
+  },
+  "memory_module": "ovos-memory-plugin-longterm",
+  "ovos-memory-plugin-longterm": {
+    "api_url": "http://localhost:8000/v1",
+    "model": "mistral",
+    "summarize_every": 8,
+    "recent_window": 4,
+    "backend": "sqlite",
+    "db_path": "~/.local/share/ovos/assistant_memory.db",
+    "system_prompt": "You are a helpful assistant."
+  }
+}

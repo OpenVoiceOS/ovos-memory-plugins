@@ -1,0 +1,16 @@
+{
+  "name": "MyAssistant",
+  "handlers": [
+    "ovos-chat-openai-plugin"
+  ],
+  "ovos-chat-openai-plugin": {
+    "api_url": "http://localhost:8080/v1",
+    "allow_system_prompts": true
+  },
+  "memory_module": "ovos-memory-plugin-entity",
+  "ovos-memory-plugin-entity": {
+    "api_url": "http://localhost:8000/v1",
+    "max_facts": 40,
+    "system_prompt": "You are a helpful assistant."
+  }
+}

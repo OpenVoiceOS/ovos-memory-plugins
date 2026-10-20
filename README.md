@@ -26,18 +26,21 @@ library, with zero extra dependencies. The heavier ones use local models or a
 | [`ovos-memory-plugin-entity`](docs/entity.md) | durable facts about the user (name, preferences…) | a local chat endpoint |
 | [`ovos-memory-plugin-composite`](docs/composite.md) | **several of the above at once**, results merged | the members' setup |
 
-New here? Jump to [Quick start](#quick-start). Building something? See
-[How it works](#how-it-works) and [Write your own backend](#write-your-own-backend).
+New here? Jump to [Quick start](#quick-start), or read the
+[persona memory setups](docs/set-up-memory.md): an assistant that remembers across restarts, a
+separate memory for each family member, and answers from your own documents.
+Building something? See [How it works](#how-it-works) and
+[Write your own backend](#write-your-own-backend).
 
 ---
 
 ## Install
 
 ```bash
-pip install ovos-memory-plugins
+pip install --pre ovos-memory-plugins
 
 # add the local semantic-RAG stack (embeddings model + vector store):
-pip install 'ovos-memory-plugins[local-rag]'
+pip install --pre 'ovos-memory-plugins[local-rag]'
 ```
 
 `recency` and `lexical` need nothing beyond the base install. They are pure
@@ -51,6 +54,16 @@ A persona is a small JSON file. The `memory_module` key picks a memory backend.
 A block with the same name configures it. Drop the file in your `ovos-persona`
 personas directory.
 
+Every persona also needs a chat engine in `handlers`. The examples use
+`ovos-chat-openai-plugin` with a local OpenAI-compatible server at
+`http://localhost:8080/v1`. Change `api_url` to your server.
+
+Set `allow_system_prompts` to `true`. The memory backends add recalled context to
+the prompt as a system message. Without this setting, `ovos-chat-openai-plugin`
+removes every system message before the request, and logs the warning `dropped 1
+system message(s) before the request: 'allow_system_prompts' is off`. The
+persona then answers without its memory.
+
 ### Step 1: remember the last few turns (no setup)
 
 The simplest memory: a sliding window of recent turns. No models, no endpoints.
@@ -58,6 +71,11 @@ The simplest memory: a sliding window of recent turns. No models, no endpoints.
 ```json
 {
   "name": "MyAssistant",
+  "handlers": ["ovos-chat-openai-plugin"],
+  "ovos-chat-openai-plugin": {
+    "api_url": "http://localhost:8080/v1",
+    "allow_system_prompts": true
+  },
   "memory_module": "ovos-memory-plugin-recency",
   "ovos-memory-plugin-recency": {
     "max_history": 10,
@@ -77,6 +95,11 @@ meaning:
 ```json
 {
   "name": "MyAssistant",
+  "handlers": ["ovos-chat-openai-plugin"],
+  "ovos-chat-openai-plugin": {
+    "api_url": "http://localhost:8080/v1",
+    "allow_system_prompts": true
+  },
   "memory_module": "ovos-memory-plugin-local-rag",
   "ovos-memory-plugin-local-rag": {
     "retrieval": {"max_num_results": 4},
@@ -99,6 +122,11 @@ hybrid recall (meaning *and* keywords) plus durable user facts:
 ```json
 {
   "name": "MyAssistant",
+  "handlers": ["ovos-chat-openai-plugin"],
+  "ovos-chat-openai-plugin": {
+    "api_url": "http://localhost:8080/v1",
+    "allow_system_prompts": true
+  },
   "memory_module": "ovos-memory-plugin-composite",
   "ovos-memory-plugin-composite": {
     "members": [
@@ -117,7 +145,7 @@ rare words), and `entity` remembers who the user is. Their hits are merged with
 Reciprocal Rank Fusion. See [composite](docs/composite.md).
 
 Prefer to see it run before wiring a persona? The [`examples/`](examples/) folder
-has ready persona files and offline demo scripts:
+has offline demo scripts:
 
 ```bash
 python examples/demo_composite.py     # hybrid recall, fully offline

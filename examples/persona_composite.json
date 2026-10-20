@@ -1,0 +1,35 @@
+{
+  "name": "MyAssistant",
+  "handlers": [
+    "ovos-chat-openai-plugin"
+  ],
+  "ovos-chat-openai-plugin": {
+    "api_url": "http://localhost:8080/v1",
+    "allow_system_prompts": true
+  },
+  "memory_module": "ovos-memory-plugin-composite",
+  "ovos-memory-plugin-composite": {
+    "members": [
+      {
+        "module": "ovos-memory-plugin-local-rag",
+        "config": {
+          "collection": "kb"
+        }
+      },
+      {
+        "module": "ovos-memory-plugin-lexical",
+        "config": {
+          "db_path": "~/.local/share/ovos/lex.db"
+        }
+      },
+      {
+        "module": "ovos-memory-plugin-entity",
+        "config": {
+          "api_url": "http://localhost:8000/v1"
+        }
+      }
+    ],
+    "fusion": "rrf",
+    "system_prompt": "You are a helpful assistant."
+  }
+}

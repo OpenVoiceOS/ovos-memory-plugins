@@ -1,0 +1,17 @@
+{
+  "name": "MyAssistant",
+  "handlers": [
+    "ovos-chat-openai-plugin"
+  ],
+  "ovos-chat-openai-plugin": {
+    "api_url": "http://localhost:8080/v1",
+    "allow_system_prompts": true
+  },
+  "memory_module": "ovos-memory-plugin-lexical",
+  "ovos-memory-plugin-lexical": {
+    "db_path": "~/.local/share/ovos/lex.db",
+    "retrieval": {
+      "max_num_results": 3
+    }
+  }
+}

@@ -6,7 +6,7 @@ HTTP, no cloud key. A private, offline assistant gets long-term semantic
 recall with nothing else running.
 
 ```bash
-pip install 'ovos-memory-plugins[local-rag]'
+pip install --pre 'ovos-memory-plugins[local-rag]'
 ```
 
 The `local-rag` extra pulls the default offline stack:
@@ -79,6 +79,7 @@ in `inject_mode="tool"` are likewise stable (`"memrag_<session_id>_<n>"`).
 | `inject_mode` | `system` | see the [inject-modes table](./overview.md#inject-modes-retrieval-backends) |
 | `system_prompt` | `""` | persona base prompt |
 | `max_history` | `10` | recent verbatim messages retained per session |
+| `scope` | `global` | `global` recalls from every session. `session` recalls only the caller's own. See [recall scope](./overview.md#recall-scope-one-user-or-several) |
 
 ## Inject modes
 
