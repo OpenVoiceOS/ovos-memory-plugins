@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0a4](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.2.0a4) (2026-10-20)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.2.0a3...1.2.0a4)
+
+**Merged pull requests:**
+
+- docs: inject\_mode helps only the retrieval memories [\#17](https://github.com/OpenVoiceOS/ovos-memory-plugins/pull/17) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [1.2.0a3](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.2.0a3) (2026-10-20)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.2.0a2...1.2.0a3)
