@@ -41,6 +41,7 @@ two through the [composite](./composite.md) (hybrid search) beats either alone.
 | `inject_mode` | `system` | `system` \| `developer` \| `system_prompt` \| `user` \| `tool`. |
 | `system_prompt` | `""` | Persona system prompt. |
 | `max_history` | `10` | Recent verbatim messages kept per session. |
+| `scope` | `global` | `global` recalls documents from every session. `session` recalls only the caller's own. See [recall scope](./overview.md#recall-scope-one-user-or-several). |
 
 > **Score scale:** lexical `score = -bm25` is **not** on the 0..1 cosine scale of
 > `local-rag`. Set `min_score` accordingly, and when combining retrievers prefer

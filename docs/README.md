@@ -5,8 +5,10 @@ implements the `AgentContextManager` contract from `ovos-plugin-manager`. A
 persona's `memory_module` key selects one. New here? Start with the
 [project README](../README.md#quick-start) for a copy-paste quick start.
 
-- [Overview & how to choose](./overview.md): the contract, inject modes, and a
-  comparison table.
+- [Set up persona memory](./set-up-memory.md): an assistant that remembers across restarts, a
+  separate memory for each family member, and answers from your own documents.
+- [Overview & how to choose](./overview.md): the contract, inject modes, recall
+  scope, chat-engine setup, and a comparison table.
 - [`ovos-memory-plugin-longterm`](./longterm.md): rolling LLM summarization.
 - [`ovos-memory-plugin-local-rag`](./local-rag.md): fully local, in-process semantic RAG.
 - [`ovos-memory-plugin-lexical`](./lexical.md): SQLite FTS5 keyword recall (zero dependencies).

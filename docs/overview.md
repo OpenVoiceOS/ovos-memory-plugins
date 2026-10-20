@@ -45,6 +45,42 @@ configurable `inject_mode`, supporting the full set:
 - `query_mode`: `utterance` (default) or `history` (fold the last N user turns
   into the search query for follow-up questions).
 
+## Recall scope: one user or several
+
+The retrieval backends (`local-rag`, `lexical`) store every exchange of every
+session in one index. The `scope` key decides what a search returns:
+
+| `scope` | A search returns | Use it when |
+|---|---|---|
+| `global` (default) | documents from every session | one user, or a shared document collection |
+| `session` | only the documents of the caller's session | several users share the memory |
+
+With `scope: global`, a second user can receive the first user's past
+exchanges as recalled context. Measured with `lexical`: Alice says "my door
+code is 4711", and Bob's search for "door code" returns Alice's exchange. With
+`scope: session`, Bob's search returns nothing and Alice's search still returns
+her exchange.
+
+A retrieval backend has no read-only mode. A shared document collection in
+`lexical` or `local-rag` also stores the conversation of every user. For
+documents that several users share, keep the documents in an
+`ovos-persona-server` vector store and read them with the read-only
+`ovos-openai-rag-memory-plugin` from `ovos-openai-plugin`.
+
+## Use with a chat engine
+
+A persona sends the context a memory backend builds to its chat engine. Recalled
+context, summaries and facts arrive as a `system` message in the default
+`inject_mode`. `ovos-chat-openai-plugin` removes every system message unless its
+config sets `allow_system_prompts` to `true`, and logs:
+
+```
+dropped 1 system message(s) before the request: 'allow_system_prompts' is off.
+```
+
+The persona then answers without its memory. Set `allow_system_prompts` to
+`true`, or set the backend's `inject_mode` to `user`.
+
 ## Choosing a backend
 
 | | longterm | local-rag | lexical | recency | entity | composite |

@@ -42,7 +42,11 @@ build_conversation_context(utterance)
 ```json
 {
   "name": "MyAssistant",
-  "handlers": ["ovos-solver-openai-plugin"],
+  "handlers": ["ovos-chat-openai-plugin"],
+  "ovos-chat-openai-plugin": {
+    "api_url": "http://localhost:8000/v1",
+    "allow_system_prompts": true
+  },
   "memory_module": "ovos-memory-plugin-longterm",
   "ovos-memory-plugin-longterm": {
     "api_url": "http://localhost:8000/v1",
@@ -55,6 +59,10 @@ build_conversation_context(utterance)
   }
 }
 ```
+
+The summary reaches the chat engine as a system message. Keep
+`allow_system_prompts` set to `true`, or `ovos-chat-openai-plugin` removes the
+summary before the request.
 
 ---
 [Home](README.md) · [Local RAG →](local-rag.md)
