@@ -11,11 +11,12 @@ turn, so they are recalled regardless of how long ago they were said (unlike a
 recency window) and without semantic search (unlike RAG).
 
 It is "clever by chaining a prompt": after each exchange it asks a **local**
-OpenAI-compatible endpoint to extract short fact lines from the latest turn, then
-merges them (deduplicated) into a per-session fact store. Local-first — it talks
-to the same kind of endpoint :class:`~ovos_memory_plugins.longterm.LongTermMemory`
-uses, never a hosted provider. If the endpoint is unreachable, extraction simply
-no-ops and the turn proceeds.
+OpenAI-compatible endpoint to extract short facts, as a JSON array, from the
+latest turn, then merges them (deduplicated) into a per-session fact store.
+Local-first — it talks to the same kind of endpoint
+:class:`~ovos_memory_plugins.longterm.LongTermMemory` uses, never a hosted
+provider. If the endpoint is unreachable, extraction simply no-ops and the turn
+proceeds.
 
 Configuration (persona JSON block)::
 
@@ -33,7 +34,7 @@ Configuration (persona JSON block)::
 """
 from __future__ import annotations
 
-import re
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -48,13 +49,18 @@ from ovos_memory_plugins._llm import chat_complete, resolve_model
 from ovos_memory_plugins.persistence import JsonStore
 
 DEFAULT_EXTRACTION_PROMPT = (
-    "From the exchange below, extract durable facts about the USER worth "
-    "remembering long-term (name, preferences, relationships, location, "
-    "constraints, goals). Output each fact on its own line prefixed with '- '. "
-    "Ignore one-off/transient details and small talk. If there is nothing worth "
-    "remembering, output exactly NONE.\n\nExchange:\n{exchange}"
+    "Exchange:\n{exchange}\n\n"
+    "List the durable facts the USER stated about themselves (name, "
+    "preferences, relationships, location, constraints, goals), as a JSON array "
+    "of short strings in the user's language, for example "
+    '["Name is Bob", "Likes jazz"]. Output only the array. '
+    "Use [] when the user stated no such fact."
 )
 DEFAULT_FACTS_HEADER = "Known facts about the user:"
+# Only this many leading characters of a reply are scanned for JSON arrays.
+MAX_SCANNED_REPLY_CHARS = 16384
+# Scanning stops after this many "[" that start no valid JSON array.
+MAX_FAILED_DECODES = 64
 
 
 class EntityMemory(AgentContextManager):
@@ -78,6 +84,8 @@ class EntityMemory(AgentContextManager):
         JSON file path for the ``json`` backend.
     extraction_prompt : str
         Override the extraction prompt template (must contain ``{exchange}``).
+        The model must reply with a JSON array of fact strings (``[]`` for none);
+        any other reply stores nothing.
     facts_header : str
         Heading for the injected facts block.
     system_prompt : str
@@ -133,17 +141,42 @@ class EntityMemory(AgentContextManager):
         self._persist_facts(session_id)
 
     @staticmethod
-    def _parse_facts(text: str) -> List[str]:
-        """Parse '- fact' lines from the LLM response; ``NONE`` yields nothing."""
-        if not text or text.strip().upper() == "NONE":
-            return []
-        out = []
-        for line in text.splitlines():
-            # strip a leading bullet ("- ", "* ", "• ") or enumerator ("1.", "2)")
-            line = re.sub(r"^\s*(?:[-*•]|\d+[.)])\s*", "", line).strip()
-            if line and line.upper() != "NONE":
-                out.append(line)
-        return out
+    def _json_arrays(text: str) -> List[list]:
+        """Return every top-level JSON array found in ``text``, in order."""
+        text = (text or "")[:MAX_SCANNED_REPLY_CHARS]
+        decoder = json.JSONDecoder()
+        arrays: List[list] = []
+        pos = 0
+        failed_decodes = 0
+        while (start := text.find("[", pos)) != -1:
+            try:
+                data, pos = decoder.raw_decode(text, start)
+            except (RecursionError, ValueError):
+                failed_decodes += 1
+                if failed_decodes >= MAX_FAILED_DECODES:
+                    break
+                # skip a run of opening brackets, keeping its last one as a start
+                pos = max(start + 1, len(text) - len(text[start:].lstrip("[")) - 1)
+                continue
+            arrays.append(data)
+        return arrays
+
+    @classmethod
+    def _parse_facts(cls, text: str) -> List[str]:
+        """Return the fact strings of every JSON array in the LLM response.
+
+        Anything outside the arrays (commentary, code fences) is ignored, and a
+        reply without a JSON array yields no facts, so prose is never stored.
+        Items without a letter or digit are dropped, and repeats are removed.
+        """
+        facts: List[str] = []
+        for array in cls._json_arrays(text):
+            for item in array:
+                if isinstance(item, str) and any(c.isalnum() for c in item):
+                    fact = item.strip()
+                    if fact not in facts:
+                        facts.append(fact)
+        return facts
 
     def _extract(self, exchange: str, session_id: str) -> None:
         """Ask the LLM for durable facts in ``exchange`` and merge them; never raises."""
@@ -158,6 +191,10 @@ class EntityMemory(AgentContextManager):
         except Exception as exc:
             LOG.debug(f"EntityMemory: extraction skipped ({exc})")
             return
+        if reply.strip() and not self._json_arrays(reply):
+            LOG.warning("EntityMemory: extraction reply holds no JSON array, so no "
+                        "fact was stored. A custom extraction_prompt must ask for "
+                        "a JSON array of strings.")
         new_facts = self._parse_facts(reply)
         if new_facts:
             self._merge_facts(session_id, new_facts)
