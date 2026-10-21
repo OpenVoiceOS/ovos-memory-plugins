@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from ovos_plugin_manager.templates.agents import AgentContextManager, AgentMessage, MessageRole
 from ovos_utils.log import LOG
+from ovos_utils.xdg_utils import xdg_data_home
 
 from ovos_memory_plugins._llm import chat_complete, resolve_model
 from ovos_memory_plugins.persistence import JsonStore, SqliteStore
@@ -76,7 +77,8 @@ class LongTermMemory(AgentContextManager):
         Persistence backend — ``"json"`` or ``"sqlite"``.
     db_path : str
         Path to the JSON file or SQLite database.
-        Default: ``~/.local/share/ovos/longterm_memory.json`` (or ``.db``).
+        Default: ``$XDG_DATA_HOME/ovos/longterm_memory.json`` (or ``.db``).
+        ``XDG_DATA_HOME`` falls back to ``~/.local/share``.
     system_prompt : str
         Optional persona system prompt prepended to every context.
     request_timeout : int  (default: 30)
@@ -95,7 +97,7 @@ class LongTermMemory(AgentContextManager):
 
         backend = self.config.get("backend", "json").lower()
         default_ext = ".db" if backend == "sqlite" else ".json"
-        default_path = f"~/.local/share/ovos/longterm_memory{default_ext}"
+        default_path = str(xdg_data_home() / "ovos" / f"longterm_memory{default_ext}")
         db_path = self.config.get("db_path", default_path)
 
         self._store: Union[_SqliteStore, _JsonStore]

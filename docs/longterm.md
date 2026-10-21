@@ -33,7 +33,7 @@ build_conversation_context(utterance)
 | `max_summary_tokens` | int | `256` | `max_tokens` for the summary request |
 | `recent_window` | int | `4` | exchanges kept verbatim after each summary |
 | `backend` | str | `json` | `json` or `sqlite` |
-| `db_path` | str | `~/.local/share/ovos/longterm_memory.{json,db}` | persistence path |
+| `db_path` | str | `$XDG_DATA_HOME/ovos/longterm_memory.{json,db}` | persistence path. `XDG_DATA_HOME` falls back to `~/.local/share`. |
 | `system_prompt` | str | `""` | persona system prompt |
 | `request_timeout` | int | `30` | HTTP timeout (s) |
 

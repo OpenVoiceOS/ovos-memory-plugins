@@ -23,7 +23,7 @@ dependencies = [
     # 2.7.0a1 is the first release carrying the MessageRole.TOOL / ToolCall contract
     # used by inject_mode="tool".
     "ovos-plugin-manager>=2.7.0a1,<3.0.0",
-    "ovos-utils>=0.0.1,<1.0.0",
+    "ovos-utils>=0.0.14a6,<1.0.0",
     "requests>=2.28",
 ]
 

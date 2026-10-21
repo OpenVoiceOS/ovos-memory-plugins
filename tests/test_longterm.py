@@ -360,3 +360,23 @@ def test_build_context_prunes_multiple_trailing_users(tmp_path):
     # Only the new utterance should appear
     assert len(user_msgs) == 1
     assert user_msgs[0].content == "final"
+
+
+@pytest.mark.parametrize("backend,name", [("json", "longterm_memory.json"),
+                                          ("sqlite", "longterm_memory.db")])
+def test_default_db_path_follows_xdg_data_home(tmp_path, monkeypatch, backend, name):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    with LongTermMemory(config={"backend": backend, "model": "m"}) as mem:
+        mem.update_history([AgentMessage(role=MessageRole.USER, content="hi"),
+                            AgentMessage(role=MessageRole.ASSISTANT, content="hello")], "s1")
+    assert (tmp_path / "ovos" / name).is_file()
+
+
+def test_explicit_db_path_overrides_xdg_data_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    path = tmp_path / "own.json"
+    mem = LongTermMemory(config={"backend": "json", "db_path": str(path), "model": "m"})
+    mem.update_history([AgentMessage(role=MessageRole.USER, content="hi"),
+                        AgentMessage(role=MessageRole.ASSISTANT, content="hello")], "s1")
+    assert path.is_file()
+    assert not (tmp_path / "xdg").exists()

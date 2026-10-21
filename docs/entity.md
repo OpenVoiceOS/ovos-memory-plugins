@@ -33,7 +33,7 @@ unreachable, extraction simply no-ops and the turn proceeds.
 | `max_extract_tokens` | `128` | `max_tokens` for the extraction call. |
 | `request_timeout` | `30` | HTTP timeout (seconds). |
 | `backend` | `json` | `json` (persisted) or `memory` (ephemeral). |
-| `db_path` | `~/.local/share/ovos/entity_memory.json` | JSON store path. |
+| `db_path` | `$XDG_DATA_HOME/ovos/entity_memory.json` | JSON store path. `XDG_DATA_HOME` falls back to `~/.local/share`. |
 | `extraction_prompt` | (built-in) | Override the extraction template (must contain `{exchange}`). The model must reply with a JSON array of strings; a reply without one stores nothing. |
 | `facts_header` | `Known facts about the user:` | Heading for the injected block. |
 | `system_prompt` | `""` | Persona system prompt. |

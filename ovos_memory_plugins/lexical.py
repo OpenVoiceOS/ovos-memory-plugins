@@ -43,11 +43,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ovos_utils.log import LOG
+from ovos_utils.xdg_utils import xdg_data_home
 
 from ovos_memory_plugins.base import BaseRetrievalMemory
 from ovos_memory_plugins.common import MemoryHit
 
-DEFAULT_DB_PATH = "~/.local/share/ovos/lexical_memory.db"
 _WORD_RE = re.compile(r"[^\W_]+", re.UNICODE)  # unicode-aware alphanumeric runs
 
 
@@ -64,7 +64,7 @@ class LexicalMemory(BaseRetrievalMemory):
 
     Lexical-specific configuration keys
     -----------------------------------
-    db_path : str  (default ``~/.local/share/ovos/lexical_memory.db``)
+    db_path : str  (default ``$XDG_DATA_HOME/ovos/lexical_memory.db``)
         Path to the SQLite database file. ``":memory:"`` for an ephemeral store.
     table : str  (default ``"lexical_memory"``)
         FTS5 virtual-table name.
@@ -75,7 +75,8 @@ class LexicalMemory(BaseRetrievalMemory):
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
-        self.db_path: str = self.config.get("db_path", DEFAULT_DB_PATH)
+        self.db_path: str = self.config.get(
+            "db_path", str(xdg_data_home() / "ovos" / "lexical_memory.db"))
         self.table: str = _safe_identifier(self.config.get("table", "lexical_memory"))
         # injectable connection for tests
         self._con: Optional[sqlite3.Connection] = self.config.get("_con")
