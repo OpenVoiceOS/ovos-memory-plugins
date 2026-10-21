@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.2a1](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.2.2a1) (2026-10-21)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.2.1a1...1.2.2a1)
+
+**Merged pull requests:**
+
+- fix: make the default entity db\_path follow XDG\_DATA\_HOME [\#19](https://github.com/OpenVoiceOS/ovos-memory-plugins/pull/19) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [1.2.1a1](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.2.1a1) (2026-10-20)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.2.0a4...1.2.1a1)
