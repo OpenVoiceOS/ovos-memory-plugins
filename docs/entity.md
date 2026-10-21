@@ -31,7 +31,7 @@ unreachable, extraction simply no-ops and the turn proceeds.
 | `model` | auto-detected | Model name. Pulled from `/models` when empty. |
 | `max_facts` | `50` | Cap per session (oldest dropped past the cap). |
 | `max_extract_tokens` | `128` | `max_tokens` for the extraction call. |
-| `request_timeout` | `30` | HTTP timeout (seconds). |
+| `request_timeout` | `10` | HTTP timeout (seconds) for the extraction call. Each request waits at most this long, and the timeout applies to each read. While `model` is unset, model detection can add up to 10 s to a turn. When a request fails, the facts of that exchange are not stored and a warning names this key. A CPU-only host needs a higher value. |
 | `backend` | `json` | `json` (persisted) or `memory` (ephemeral). |
 | `db_path` | `$XDG_DATA_HOME/ovos/entity_memory.json` | JSON store path. `XDG_DATA_HOME` falls back to `~/.local/share`. |
 | `extraction_prompt` | (built-in) | Override the extraction template (must contain `{exchange}`). The model must reply with a JSON array of strings; a reply without one stores nothing. |

@@ -58,6 +58,8 @@ DEFAULT_EXTRACTION_PROMPT = (
     "Use [] when the user stated no such fact."
 )
 DEFAULT_FACTS_HEADER = "Known facts about the user:"
+# Seconds. Same as the model auto-detection timeout in ``_llm.resolve_model``.
+DEFAULT_REQUEST_TIMEOUT = 10
 # Only this many leading characters of a reply are scanned for JSON arrays.
 MAX_SCANNED_REPLY_CHARS = 16384
 # Scanning stops after this many "[" that start no valid JSON array.
@@ -77,8 +79,15 @@ class EntityMemory(AgentContextManager):
         Cap on stored facts per session (oldest dropped past the cap).
     max_extract_tokens : int  (default 128)
         ``max_tokens`` for the extraction request.
-    request_timeout : int  (default 30)
-        HTTP timeout in seconds.
+    request_timeout : int  (default 10)
+        HTTP timeout in seconds for the extraction request. Extraction runs
+        before the turn is reported as handled, so a slow server delays the
+        end of the turn. Each request waits at most this long, and the
+        timeout applies to each read, so a server that sends data slowly can
+        take longer. While ``model`` is unset, model detection can add up to
+        10 s to a turn. When a request fails, the facts of that exchange are
+        not stored and a warning names this key. A CPU-only host needs a
+        higher value.
     backend : str  (default ``"json"``)
         ``"json"`` (persisted) or ``"memory"`` (ephemeral).
     db_path : str  (default ``$XDG_DATA_HOME/ovos/entity_memory.json``)
@@ -100,7 +109,7 @@ class EntityMemory(AgentContextManager):
         self.model: str = self.config.get("model", "")
         self.max_facts: int = int(self.config.get("max_facts", 50))
         self.max_extract_tokens: int = int(self.config.get("max_extract_tokens", 128))
-        self.request_timeout: int = int(self.config.get("request_timeout", 30))
+        self.request_timeout: int = int(self.config.get("request_timeout", DEFAULT_REQUEST_TIMEOUT))
         self.extraction_prompt: str = self.config.get(
             "extraction_prompt", DEFAULT_EXTRACTION_PROMPT)
         self.facts_header: str = self.config.get("facts_header", DEFAULT_FACTS_HEADER)
@@ -192,7 +201,8 @@ class EntityMemory(AgentContextManager):
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=self.max_extract_tokens, timeout=self.request_timeout)
         except Exception as exc:
-            LOG.debug(f"EntityMemory: extraction skipped ({exc})")
+            LOG.warning(f"EntityMemory: extraction skipped, so no fact was stored "
+                        f"({exc}). Raise request_timeout if the server is slow.")
             return
         if reply.strip() and not self._json_arrays(reply):
             LOG.warning("EntityMemory: extraction reply holds no JSON array, so no "
