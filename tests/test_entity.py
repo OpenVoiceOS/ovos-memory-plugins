@@ -215,3 +215,27 @@ def test_explicit_db_path_overrides_xdg_data_home(tmp_path, monkeypatch):
     p._merge_facts("s1", ["Likes tea"])
     assert path.is_file()
     assert not (tmp_path / "xdg").exists()
+
+
+@patch("ovos_memory_plugins.entity.chat_complete", return_value="[]")
+def test_extraction_timeout_defaults_to_ten_seconds(mock_llm):
+    p = _make()
+    p.update_history([_user("hi"), _assistant("hello")], "s1")
+    assert mock_llm.call_args.kwargs["timeout"] == 10
+
+
+@patch("ovos_memory_plugins.entity.chat_complete", return_value="[]")
+def test_extraction_timeout_is_configurable(mock_llm):
+    p = _make(request_timeout=3)
+    p.update_history([_user("hi"), _assistant("hello")], "s1")
+    assert mock_llm.call_args.kwargs["timeout"] == 3
+
+
+@patch("ovos_memory_plugins.entity.chat_complete", side_effect=TimeoutError("Read timed out"))
+def test_dropped_extraction_warns_and_names_request_timeout(mock_llm):
+    p = _make()
+    with patch("ovos_memory_plugins.entity.LOG") as log:
+        p.update_history([_user("my name is Bo"), _assistant("Hi Bo")], "s1")
+    assert p._load_facts("s1") == []
+    message = log.warning.call_args.args[0]
+    assert "request_timeout" in message and "Read timed out" in message
