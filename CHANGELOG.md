@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.3a1](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.2.3a1) (2026-10-21)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.2.2a1...1.2.3a1)
+
+**Merged pull requests:**
+
+- fix: shorten the default entity extraction timeout to 10 s [\#18](https://github.com/OpenVoiceOS/ovos-memory-plugins/pull/18) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [1.2.2a1](https://github.com/OpenVoiceOS/ovos-memory-plugins/tree/1.2.2a1) (2026-10-21)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-memory-plugins/compare/1.2.1a1...1.2.2a1)
