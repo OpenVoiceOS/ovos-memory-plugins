@@ -44,6 +44,7 @@ from ovos_plugin_manager.templates.agents import (
     MessageRole,
 )
 from ovos_utils.log import LOG
+from ovos_utils.xdg_utils import xdg_data_home
 
 from ovos_memory_plugins._llm import chat_complete, resolve_model
 from ovos_memory_plugins.persistence import JsonStore
@@ -80,8 +81,9 @@ class EntityMemory(AgentContextManager):
         HTTP timeout in seconds.
     backend : str  (default ``"json"``)
         ``"json"`` (persisted) or ``"memory"`` (ephemeral).
-    db_path : str
-        JSON file path for the ``json`` backend.
+    db_path : str  (default ``$XDG_DATA_HOME/ovos/entity_memory.json``)
+        JSON file path for the ``json`` backend. ``XDG_DATA_HOME`` falls back
+        to ``~/.local/share``.
     extraction_prompt : str
         Override the extraction prompt template (must contain ``{exchange}``).
         The model must reply with a JSON array of fact strings (``[]`` for none);
@@ -105,7 +107,8 @@ class EntityMemory(AgentContextManager):
 
         backend = self.config.get("backend", "json").lower()
         if backend == "json":
-            db_path = self.config.get("db_path", "~/.local/share/ovos/entity_memory.json")
+            db_path = self.config.get(
+                "db_path", str(xdg_data_home() / "ovos" / "entity_memory.json"))
             self._store: Optional[JsonStore] = JsonStore(db_path)
         else:
             self._store = None

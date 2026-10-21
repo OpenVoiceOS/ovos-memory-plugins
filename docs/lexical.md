@@ -32,7 +32,7 @@ two through the [composite](./composite.md) (hybrid search) beats either alone.
 
 | Key | Default | Description |
 |---|---|---|
-| `db_path` | `~/.local/share/ovos/lexical_memory.db` | SQLite file. Use `":memory:"` for an ephemeral store. |
+| `db_path` | `$XDG_DATA_HOME/ovos/lexical_memory.db` | SQLite file. `XDG_DATA_HOME` falls back to `~/.local/share`. Use `":memory:"` for an ephemeral store. |
 | `table` | `lexical_memory` | FTS5 virtual-table name. |
 | `retrieval.max_num_results` | `5` | Max documents per query. |
 | `retrieval.min_score` | `null` | Drop hits below this BM25-derived score (see note). |

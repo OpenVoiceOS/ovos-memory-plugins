@@ -198,3 +198,20 @@ def test_long_spaced_brackets_are_bounded_in_time():
 def test_many_failed_brackets_stop_the_scan():
     reply = "[x] " * 1000 + '["Has a dog"]'
     assert EntityMemory._parse_facts(reply) == []
+
+
+def test_default_db_path_follows_xdg_data_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    p = EntityMemory(config={"backend": "json", "model": "m", "api_url": "http://mock/v1"})
+    p._merge_facts("s1", ["Likes tea"])
+    assert (tmp_path / "ovos" / "entity_memory.json").is_file()
+    assert EntityMemory(config={"backend": "json"})._load_facts("s1") == ["Likes tea"]
+
+
+def test_explicit_db_path_overrides_xdg_data_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    path = tmp_path / "own.json"
+    p = EntityMemory(config={"backend": "json", "db_path": str(path)})
+    p._merge_facts("s1", ["Likes tea"])
+    assert path.is_file()
+    assert not (tmp_path / "xdg").exists()

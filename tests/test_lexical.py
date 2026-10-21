@@ -131,3 +131,21 @@ def test_store_failure_does_not_break_history():
     p.con.close()
     _ingest(p, "s1", [GEO[0]])  # must not raise
     assert len(p.get_history("s1")) == 2
+
+
+def test_default_db_path_follows_xdg_data_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    plugin = LexicalMemory(config={})
+    _ingest(plugin, "s1", GEO[:1])
+    plugin.close()
+    assert (tmp_path / "ovos" / "lexical_memory.db").is_file()
+
+
+def test_explicit_db_path_overrides_xdg_data_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    path = tmp_path / "own.db"
+    plugin = LexicalMemory(config={"db_path": str(path)})
+    _ingest(plugin, "s1", GEO[:1])
+    plugin.close()
+    assert path.is_file()
+    assert not (tmp_path / "xdg").exists()
